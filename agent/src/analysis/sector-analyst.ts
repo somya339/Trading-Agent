@@ -98,7 +98,7 @@ Return JSON:
 }`;
 
     const response = await this.openai.chat.completions.create({
-      model: "gpt-5.5-mini",
+      model: "gpt-5.5",
       messages: [
         {
           role: "system",
@@ -108,8 +108,7 @@ Return JSON:
         { role: "user", content: prompt },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.2,  // Lower for more consistent sector picks
-      max_tokens: 800,   // Higher for deeper macro analysis
+      max_completion_tokens: 1000, // Higher for deeper macro analysis
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
