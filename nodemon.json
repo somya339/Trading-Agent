@@ -1,0 +1,14 @@
+{
+  "watch": ["agent/src"],
+  "ext": "ts,js",
+  "ignore": [
+    "dashboard/**",
+    "**/*.json",
+    ".env",
+    ".env.*",
+    "node_modules/**",
+    "test-*.ts",
+    "test-*.js",
+    "agent-tools/**"
+  ]
+}

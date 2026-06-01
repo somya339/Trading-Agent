@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🤖 AI Trading Signals</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+          "Ubuntu", "Cantarell", sans-serif;
+        background: #f5f7fa;
+        color: #333;
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .header h1 {
+        font-size: 28px;
+        color: #2c3e50;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .status.open {
+        background: #10b981;
+        color: white;
+      }
+
+      .status.closed {
+        background: #6b7280;
+        color: white;
+      }
+
+      .last-update {
+        color: #6b7280;
+        font-size: 14px;
+      }
+
+      /* Stats Panel */
+      .stats-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      .stat-card label {
+        display: block;
+        font-size: 13px;
+        color: #6b7280;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #2c3e50;
+      }
+
+      .stat-card.highlight .value {
+        color: #3b82f6;
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        background: white;
+        padding: 8px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .tab {
+        flex: 1;
+        padding: 12px 24px;
+        border: none;
+        background: transparent;
+        color: #6b7280;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s;
+      }
+
+      .tab:hover {
+        background: #f3f4f6;
+      }
+
+      .tab.active {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Signal Cards */
+      .signal-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-left: 5px solid #e5e7eb;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+
+      .signal-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .signal-card.buy {
+        border-left-color: #10b981;
+      }
+
+      .signal-card.sell {
+        border-left-color: #ef4444;
+      }
+
+      .signal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .symbol {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      .confidence {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .confidence.HIGH {
+        background: #10b981;
+        color: white;
+      }
+
+      .confidence.MEDIUM {
+        background: #f59e0b;
+        color: white;
+      }
+
+      .confidence.LOW {
+        background: #6b7280;
+        color: white;
+      }
+
+      /* Trade Details Grid */
+      .trade-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+        padding: 20px;
+        background: #f9fafb;
+        border-radius: 8px;
+      }
+
+      .detail-item {
+        text-align: center;
+      }
+
+      .detail-item label {
+        display: block;
+        font-size: 11px;
+        color: #6b7280;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .detail-item .value {
+        display: block;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      .detail-item .value.positive {
+        color: #10b981;
+      }
+
+      .detail-item .value.negative {
+        color: #ef4444;
+      }
+
+      /* Rationale */
+      .rationale {
+        margin: 20px 0;
+        padding: 16px;
+        background: #fef3c7;
+        border-radius: 8px;
+        border-left: 4px solid #f59e0b;
+      }
+
+      .rationale strong {
+        color: #92400e;
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .rationale p {
+        color: #78350f;
+        line-height: 1.6;
+      }
+
+      /* Buttons */
+      .button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .button-primary {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .button-primary:hover {
+        background: #2563eb;
+      }
+
+      /* Feedback Section */
+      .feedback-section {
+        margin-top: 24px;
+        padding: 20px;
+        background: #eff6ff;
+        border-radius: 8px;
+        border: 2px solid #3b82f6;
+      }
+
+      .feedback-section h4 {
+        color: #1e40af;
+        margin-bottom: 16px;
+        font-size: 16px;
+      }
+
+      /* Score Buttons */
+      .score-buttons {
+        display: flex;
+        gap: 8px;
+        margin: 12px 0;
+        flex-wrap: wrap;
+      }
+
+      .score-btn {
+        flex: 1;
+        min-width: 45px;
+        padding: 12px;
+        border: 2px solid #d1d5db;
+        background: white;
+        color: #374151;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .score-btn:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+      }
+
+      .score-btn.selected {
+        background: #10b981;
+        color: white;
+        border-color: #10b981;
+        transform: scale(1.05);
+      }
+
+      /* Action Buttons */
+      .action-buttons {
+        display: flex;
+        gap: 12px;
+        margin: 16px 0;
+      }
+
+      .button-success {
+        flex: 1;
+        background: #10b981;
+        color: white;
+        justify-content: center;
+      }
+
+      .button-success:hover {
+        background: #059669;
+      }
+
+      .button-warning {
+        flex: 1;
+        background: #f59e0b;
+        color: white;
+        justify-content: center;
+      }
+
+      .button-warning:hover {
+        background: #d97706;
+      }
+
+      /* Textarea */
+      textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #d1d5db;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        resize: vertical;
+        min-height: 80px;
+        margin-top: 12px;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+
+      /* User Feedback Display */
+      .user-feedback {
+        margin-top: 20px;
+        padding: 16px;
+        background: #d1fae5;
+        border-radius: 8px;
+        border-left: 4px solid #10b981;
+      }
+
+      .user-feedback strong {
+        color: #065f46;
+      }
+
+      .user-feedback p {
+        color: #047857;
+        margin-top: 8px;
+        line-height: 1.5;
+      }
+
+      /* Empty State */
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6b7280;
+      }
+
+      .empty-state svg {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      .empty-state h3 {
+        margin-bottom: 8px;
+        color: #374151;
+      }
+
+      /* Learning Insights */
+      .learning-section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+      }
+
+      .learning-section h3 {
+        color: #1f2937;
+        margin-bottom: 16px;
+        font-size: 20px;
+      }
+
+      .learning-section ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .learning-section li {
+        padding: 12px;
+        margin-bottom: 8px;
+        background: #f9fafb;
+        border-radius: 6px;
+        border-left: 3px solid #3b82f6;
+      }
+
+      .learning-section li.good {
+        border-left-color: #10b981;
+        background: #ecfdf5;
+      }
+
+      .learning-section li.bad {
+        border-left-color: #ef4444;
+        background: #fef2f2;
+      }
+
+      /* Symbol Preferences Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+      }
+
+      thead {
+        background: #f9fafb;
+      }
+
+      th {
+        padding: 12px;
+        text-align: left;
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      tr:hover {
+        background: #f9fafb;
+      }
+
+      /* Toast Notification */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #1f2937;
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        display: none;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        display: block;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .trade-details {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .score-buttons {
+          grid-template-columns: repeat(5, 1fr);
+        }
+
+        .header {
+          flex-direction: column;
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <h1>🤖 AI Trading Signals</h1>
+      <div class="header-right">
+        <span id="market-status" class="status closed">Loading...</span>
+        <span id="last-update" class="last-update">-</span>
+      </div>
+    </div>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel">
+      <div class="stat-card">
+        <label>Total Signals</label>
+        <div class="value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <label>Executed</label>
+        <div class="value" id="stat-executed">0</div>
+      </div>
+      <div class="stat-card highlight">
+        <label>Avg Score</label>
+        <div class="value" id="stat-score">-</div>
+      </div>
+      <div class="stat-card">
+        <label>Win Rate</label>
+        <div class="value" id="stat-winrate">-</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('current')">
+        📊 Current Signals
+      </button>
+      <button class="tab" onclick="switchTab('history')">📜 History</button>
+      <button class="tab" onclick="switchTab('learnings')">🧠 Learnings</button>
+    </div>
+
+    <!-- Tab Contents -->
+    <div id="current-tab" class="tab-content active">
+      <div id="signals-container"></div>
+    </div>
+
+    <div id="history-tab" class="tab-content">
+      <div id="history-container"></div>
+    </div>
+
+    <div id="learnings-tab" class="tab-content">
+      <div id="learnings-container"></div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+      let currentSignals = [];
+      let history = [];
+      let memory = {};
+
+      // Load signals from trades.json
+      async function loadSignals() {
+        try {
+          const response = await fetch("trades.json?" + Date.now());
+          const data = await response.json();
+          currentSignals = data.signals || [];
+
+          // Update header
+          document.getElementById("market-status").textContent =
+            data.marketStatus;
+          document.getElementById("market-status").className =
+            "status " + data.marketStatus.toLowerCase();
+
+          const date = new Date(data.generatedAt);
+          document.getElementById("last-update").textContent =
+            date.toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+
+          renderSignals();
+        } catch (error) {
+          console.error("Failed to load signals:", error);
+        }
+      }
+
+      // Load history from history.json
+      async function loadHistory() {
+        try {
+          const response = await fetch("history.json?" + Date.now());
+          history = await response.json();
+        } catch {
+          history = [];
+        }
+      }
+
+      // Load memory from memory.json
+      async function loadMemory() {
+        try {
+          const response = await fetch("memory.json?" + Date.now());
+          memory = await response.json();
+          updateStats();
+        } catch {
+          memory = {
+            totalSignalsGenerated: 0,
+            signalsExecuted: 0,
+            averageScore: 0,
+            winRate: 0,
+            bestSetups: [],
+            avoidPatterns: [],
+            symbolPreferences: {},
+          };
+        }
+      }
+
+      // Update stats panel
+      function updateStats() {
+        document.getElementById("stat-total").textContent =
+          memory.totalSignalsGenerated || 0;
+        document.getElementById("stat-executed").textContent =
+          memory.signalsExecuted || 0;
+        document.getElementById("stat-score").textContent = memory.averageScore
+          ? memory.averageScore.toFixed(1) + "/10"
+          : "-";
+        document.getElementById("stat-winrate").textContent = memory.winRate
+          ? (memory.winRate * 100).toFixed(0) + "%"
+          : "-";
+      }
+
+      // Render current signals
+      function renderSignals() {
+        const container = document.getElementById("signals-container");
+
+        if (currentSignals.length === 0) {
+          container.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <h3>No signals at this time</h3>
+            <p>Agent is monitoring the market. New signals will appear here.</p>
+          </div>
+        `;
+          return;
+        }
+
+        container.innerHTML = "";
+        currentSignals.forEach((signal) => {
+          container.appendChild(createSignalCard(signal, true));
+        });
+      }
+
+      // Create signal card
+      function createSignalCard(signal, showFeedback) {
+        const card = document.createElement("div");
+        card.className = `signal-card ${(signal.action || "buy").toLowerCase()}`;
+
+        // Safe numeric helpers
+        const entry = signal.entry || 0;
+        const stopLoss = signal.stopLoss || 0;
+        const targets =
+          Array.isArray(signal.targets) && signal.targets.length > 0
+            ? signal.targets
+            : signal.target
+              ? [signal.target]
+              : [entry * 1.1];
+        const quantity = signal.quantity || 1;
+        const riskPerShare = entry - stopLoss;
+        const riskReward =
+          riskPerShare > 0
+            ? ((targets[0] - entry) / riskPerShare).toFixed(2)
+            : "N/A";
+        const risk = Math.abs(riskPerShare * quantity).toFixed(0);
+        const reward = Math.abs((targets[0] - entry) * quantity).toFixed(0);
+
+        // Confidence display — use suggestedTimeframe or confidence field
+        const confidenceLabel = signal.suggestedTimeframe
+          ? { SHORT: "SHORT TERM", MEDIUM: "MID TERM", LONG: "LONG TERM" }[
+              signal.suggestedTimeframe
+            ]
+          : signal.confidence || "MEDIUM";
+        const confidenceClass = signal.suggestedTimeframe
+          ? signal.suggestedTimeframe
+          : signal.confidence || "MEDIUM";
+
+        // Score badge (overallScore or legacy)
+        const score =
+          signal.overallScore !== undefined ? signal.overallScore : null;
+        const scoreBadge =
+          score !== null
+            ? `<div class="score-badge" style="background:${score >= 70 ? "#4caf50" : score >= 50 ? "#ff9800" : "#f44336"};color:white;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:bold;">${score}/100</div>`
+            : "";
+
+        // Key reasons and sector
+        const sectorBadge = signal.sector
+          ? `<span style="font-size:11px;background:#e3f2fd;color:#1565c0;padding:3px 8px;border-radius:10px;margin-right:6px;">${signal.sector}</span>`
+          : "";
+        const timeframeBadge = signal.holdingPeriod
+          ? `<span style="font-size:11px;background:#f3e5f5;color:#6a1b9a;padding:3px 8px;border-radius:10px;">${signal.holdingPeriod}</span>`
+          : "";
+
+        const keyReasonsHtml =
+          Array.isArray(signal.keyReasons) && signal.keyReasons.length > 0
+            ? `<ul style="margin:4px 0 0 0;padding-left:16px;font-size:13px;">${signal.keyReasons.map((r) => `<li>${r}</li>`).join("")}</ul>`
+            : "";
+        const risksHtml =
+          Array.isArray(signal.risks) && signal.risks.length > 0
+            ? `<div style="margin-top:6px;font-size:12px;color:#d32f2f;">⚠ ${signal.risks.join(" • ")}</div>`
+            : "";
+
+        // Rationale: use new fields or fall back to old 'reasoning'
+        const rationale = signal.technicalSummary
+          ? `<b>Technical:</b> ${signal.technicalSummary}<br><b>Fundamental:</b> ${signal.fundamentalSummary || "N/A"}<br><b>News:</b> ${signal.newsSummary || "N/A"}`
+          : signal.reasoning || signal.catalyst || "";
+
+        // Scores breakdown
+        const scoresHtml =
+          signal.technicalScore !== undefined
+            ? `<div style="display:flex;gap:12px;font-size:12px;margin-top:8px;">
+              <span>📈 Technical: ${signal.technicalScore}/100</span>
+              <span>📊 Fundamental: ${signal.fundamentalScore}/100</span>
+              <span>📰 Sentiment: ${signal.sentimentScore}/100</span>
+             </div>`
+            : "";
+
+        const targetsDisplay = targets
+          .map((t) => "₹" + (typeof t === "number" ? t.toFixed(2) : t))
+          .join(" → ");
+        const copyArgs = JSON.stringify({
+          symbol: signal.symbol,
+          entry,
+          stopLoss,
+          targets,
+          quantity,
+        });
+
+        card.innerHTML = `
+        <div class="signal-header">
+          <div class="symbol">${signal.symbol}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${scoreBadge}
+            <div class="confidence ${confidenceClass}">${confidenceLabel}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">${sectorBadge}${timeframeBadge}</div>
+
+        <div class="trade-details">
+          <div class="detail-item">
+            <label>Action</label>
+            <div class="value ${(signal.action || "BUY") === "BUY" ? "positive" : "negative"}">${signal.action || "BUY"}</div>
+          </div>
+          <div class="detail-item">
+            <label>Entry</label>
+            <div class="value">₹${entry > 0 ? entry.toFixed(2) : "—"}</div>
+          </div>
+          <div class="detail-item">
+            <label>Stop Loss</label>
+            <div class="value">₹${stopLoss > 0 ? stopLoss.toFixed(2) : "—"}</div>
+          </div>
+          <div class="detail-item">
+            <label>Targets</label>
+            <div class="value" style="font-size:12px;">${targetsDisplay}</div>
+          </div>
+          <div class="detail-item">
+            <label>Quantity</label>
+            <div class="value">${quantity}</div>
+          </div>
+          <div class="detail-item">
+            <label>Risk</label>
+            <div class="value negative">₹${risk}</div>
+          </div>
+          <div class="detail-item">
+            <label>Reward</label>
+            <div class="value positive">₹${reward}</div>
+          </div>
+          <div class="detail-item">
+            <label>R:R Ratio</label>
+            <div class="value">${riskReward}:1</div>
+          </div>
+        </div>
+
+        ${scoresHtml}
+
+        <div class="rationale" style="margin-top:10px;">
+          <strong>Analysis:</strong>
+          <p style="margin:4px 0;">${rationale}</p>
+          ${keyReasonsHtml}
+          ${risksHtml}
+        </div>
+
+        <button class="button button-primary" onclick='copyTradeDetails(${JSON.stringify(copyArgs)})'>
+          📋 Copy Trade Details
+        </button>
+
+        ${
+          showFeedback
+            ? `
+          <div class="feedback-section" id="feedback-${signal.id}">
+            <h4>⭐ Rate this signal (1-10):</h4>
+            <div class="score-buttons">
+              ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                .map(
+                  (score) =>
+                    `<button class="score-btn" onclick="setScore('${signal.id}', ${score})">${score}</button>`,
+                )
+                .join("")}
+            </div>
+
+            <div class="action-buttons">
+              <button class="button button-success" onclick="markExecuted('${signal.id}')">
+                ✓ Executed
+              </button>
+              <button class="button button-warning" onclick="markSkipped('${signal.id}')">
+                ↷ Skipped
+              </button>
+            </div>
+
+            <textarea id="notes-${signal.id}" placeholder="Notes: Why did you like or dislike this signal? (Optional but helpful for learning)"></textarea>
+          </div>
+        `
+            : ""
+        }
+
+        ${
+          signal.userScore
+            ? `
+          <div class="user-feedback">
+            <strong>Your Feedback:</strong> Score ${signal.userScore}/10,
+            ${signal.executed ? "✓ Executed" : "↷ Skipped"}
+            ${signal.outcome ? " • Outcome: " + signal.outcome : ""}
+            ${signal.notes ? "<p>" + signal.notes + "</p>" : ""}
+          </div>
+        `
+            : ""
+        }
+      `;
+
+        return card;
+      }
+
+      // Set score
+      function setScore(signalId, score) {
+        const buttons = document.querySelectorAll(
+          `#feedback-${signalId} .score-btn`,
+        );
+        buttons.forEach((btn, i) => {
+          btn.classList.toggle("selected", i + 1 === score);
+        });
+      }
+
+      // Mark executed
+      async function markExecuted(signalId) {
+        await saveFeedback(signalId, true);
+      }
+
+      // Mark skipped
+      async function markSkipped(signalId) {
+        await saveFeedback(signalId, false);
+      }
+
+      // Save feedback
+      async function saveFeedback(signalId, executed) {
+        const signal = currentSignals.find((s) => s.id === signalId);
+        if (!signal) return;
+
+        const selectedScore = document.querySelector(
+          `#feedback-${signalId} .score-btn.selected`,
+        );
+        if (!selectedScore && executed) {
+          showToast("⚠️ Please rate the signal first (1-10)");
+          return;
+        }
+
+        const score = selectedScore
+          ? parseInt(selectedScore.textContent)
+          : executed
+            ? 5
+            : 3;
+        const notes = document.getElementById(`notes-${signalId}`).value;
+
+        signal.userScore = score;
+        signal.executed = executed;
+        signal.outcome = executed ? "PENDING" : "SKIPPED";
+        signal.notes = notes;
+
+        try {
+          // Load current history
+          await loadHistory();
+
+          // Add to history
+          history.push(signal);
+
+          // Save to server
+          const response = await fetch("/save-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(history),
+          });
+
+          if (response.ok) {
+            // Remove from current signals
+            currentSignals = currentSignals.filter((s) => s.id !== signalId);
+            renderSignals();
+
+            // Reload memory
+            await loadMemory();
+
+            showToast("✅ Feedback saved! Agent will learn from this.");
+          } else {
+            throw new Error("Failed to save");
+          }
+        } catch (error) {
+          console.error("Error saving feedback:", error);
+          showToast("❌ Error saving feedback. Please try again.");
+        }
+      }
+
+      // Copy trade details (new signal format — receives JSON string)
+      function copyTradeDetails(jsonStr) {
+        const d = typeof jsonStr === "string" ? JSON.parse(jsonStr) : jsonStr;
+        copyToClipboard(d.symbol, d.entry, d.stopLoss, d.targets, d.quantity);
+      }
+
+      // Copy to clipboard
+      function copyToClipboard(symbol, entry, stopLoss, targets, quantity) {
+        const text = `${symbol}
+Entry: ₹${entry.toFixed(2)}
+Stop Loss: ₹${stopLoss.toFixed(2)}
+Target: ₹${targets.join(", ")}
+Quantity: ${quantity} shares
+
+Risk: ₹${Math.abs((entry - stopLoss) * quantity).toFixed(0)}
+Reward: ₹${Math.abs((targets[0] - entry) * quantity).toFixed(0)}`;
+
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("📋 Copied to clipboard!");
+        });
+      }
+
+      // Switch tabs
+      function switchTab(tabName) {
+        // Update tab buttons
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        event.target.classList.add("active");
+
+        // Update tab content
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((t) => t.classList.remove("active"));
+
+        if (tabName === "current") {
+          document.getElementById("current-tab").classList.add("active");
+        } else if (tabName === "history") {
+          document.getElementById("history-tab").classList.add("active");
+          renderHistory();
+        } else if (tabName === "learnings") {
+          document.getElementById("learnings-tab").classList.add("active");
+          renderLearnings();
+        }
+      }
+
+      // Render history
+      function renderHistory() {
+        const container = document.getElementById("history-container");
+
+        if (history.length === 0) {
+          container.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3>No history yet</h3>
+            <p>Start rating signals and they'll appear here.</p>
+          </div>
+        `;
+          return;
+        }
+
+        container.innerHTML =
+          '<div style="margin-bottom: 16px;"><h2 style="color: #1f2937;">Trade History</h2></div>';
+
+        // Show most recent first
+        const sortedHistory = [...history].reverse();
+        sortedHistory.forEach((signal) => {
+          container.appendChild(createSignalCard(signal, false));
+        });
+      }
+
+      // Render learnings
+      function renderLearnings() {
+        const container = document.getElementById("learnings-container");
+
+        if (!memory.bestSetups && memory.totalSignalsGenerated === 0) {
+          container.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            <h3>Not enough data yet</h3>
+            <p>Rate more signals (at least 5) to see learning insights.</p>
+          </div>
+        `;
+          return;
+        }
+
+        container.innerHTML = "";
+
+        // Patterns You Like
+        if (memory.bestSetups && memory.bestSetups.length > 0) {
+          const section = document.createElement("div");
+          section.className = "learning-section";
+          section.innerHTML = `
+          <h3>✅ Patterns You Like (Score ≥8)</h3>
+          <ul>
+            ${memory.bestSetups
+              .map((pattern) => `<li class="good">📈 ${pattern}</li>`)
+              .join("")}
+          </ul>
+          <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">
+            Agent will prioritize these patterns in future recommendations.
+          </p>
+        `;
+          container.appendChild(section);
+        }
+
+        // Patterns to Avoid
+        if (memory.avoidPatterns && memory.avoidPatterns.length > 0) {
+          const section = document.createElement("div");
+          section.className = "learning-section";
+          section.innerHTML = `
+          <h3>❌ Patterns to Avoid (Score ≤4)</h3>
+          <ul>
+            ${memory.avoidPatterns
+              .map((pattern) => `<li class="bad">📉 ${pattern}</li>`)
+              .join("")}
+          </ul>
+          <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">
+            Agent will avoid these patterns in future recommendations.
+          </p>
+        `;
+          container.appendChild(section);
+        }
+
+        // Symbol Preferences
+        if (
+          memory.symbolPreferences &&
+          Object.keys(memory.symbolPreferences).length > 0
+        ) {
+          const section = document.createElement("div");
+          section.className = "learning-section";
+
+          const sortedSymbols = Object.entries(memory.symbolPreferences)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 10);
+
+          section.innerHTML = `
+          <h3>📊 Symbol Preferences (Top 10)</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Avg Score</th>
+                <th>Preference</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedSymbols
+                .map(([symbol, score]) => {
+                  const preference =
+                    score >= 7
+                      ? "✅ Prefer"
+                      : score <= 4
+                        ? "❌ Avoid"
+                        : "⚬ Neutral";
+                  const color =
+                    score >= 7 ? "#10b981" : score <= 4 ? "#ef4444" : "#6b7280";
+                  return `
+                  <tr>
+                    <td><strong>${symbol}</strong></td>
+                    <td style="color: ${color}; font-weight: 600;">${score.toFixed(1)}/10</td>
+                    <td style="color: ${color};">${preference}</td>
+                  </tr>
+                `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        `;
+          container.appendChild(section);
+        }
+      }
+
+      // Show toast notification
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        setTimeout(() => {
+          toast.classList.remove("show");
+        }, 3000);
+      }
+
+      // Initialize
+      async function init() {
+        await loadSignals();
+        await loadHistory();
+        await loadMemory();
+
+        // Auto-refresh every minute
+        setInterval(async () => {
+          await loadSignals();
+          await loadMemory();
+        }, 60 * 1000);
+      }
+
+      // Start
+      init();
+    </script>
+  </body>
+</html>
