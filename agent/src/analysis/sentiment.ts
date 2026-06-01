@@ -77,7 +77,7 @@ Return JSON:
 }`;
 
     const response = await this.openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.5-mini",
       messages: [
         {
           role: "system",
