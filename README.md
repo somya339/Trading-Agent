@@ -9,6 +9,15 @@
 
 ---
 
+
+## 🎥 Demo Video
+
+[Demo](https://github.com/user-attachments/assets/7cd9fafc-4b29-4a1f-9cc8-7ae0a918979c)
+
+## 📸 Actual Zerodha Watchlist Created Using Agent Recommendations
+
+![Zerodha Watchlist](https://github.com/user-attachments/assets/38e14ac8-04ff-4e2e-a4b6-c7d26511bd7b)
+
 ## 🌟 Key Features
 
 - 🧠 **AI-Powered Sector Discovery** — GPT-4 identifies trending sectors using market news and macro trends
