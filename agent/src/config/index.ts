@@ -1,16 +1,229 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+/**
+ * Risk profiles. Switch with RISK_PROFILE=aggressive|balanced|conservative.
+ * Individual values can still be overridden by their own env vars.
+ *
+ * "aggressive" is for a HIGH risk appetite — higher per-trade risk, more
+ * concurrent positions, looser entry gates, wider stops (to let winners run),
+ * and bigger position/sector concentration. This amplifies returns AND losses;
+ * keep the paper tracker running to confirm the edge is real before live use.
+ */
+export type RiskProfileName = "conservative" | "balanced" | "aggressive";
+
+interface RiskProfile {
+  riskPerTradePct: number;
+  maxPortfolioHeatPct: number;
+  maxPositionPct: number;
+  maxSectorPct: number;
+  maxOpenPositions: number;
+  minPositionValue: number;
+  atrStopMultiple: number;
+  // Signal gating + strategy knobs that scale with appetite.
+  buyScoreThreshold: number; // overallScore ≥ this → BUY
+  holdScoreThreshold: number; // ≥ this (and < buy) → HOLD, else SKIP
+  minSentiment: number; // below this sentiment → SKIP
+  minAlignment: number; // technical alignment filter
+  momentumMinRsRating: number; // momentum engine RS gate
+  swingMinRewardRisk: number; // swing engine min R:R
+  targetMultipliers: number[]; // R-multiples for target laddering
+}
+
+const RISK_PROFILES: Record<RiskProfileName, RiskProfile> = {
+  conservative: {
+    riskPerTradePct: 0.0075,
+    maxPortfolioHeatPct: 0.04,
+    maxPositionPct: 0.1,
+    maxSectorPct: 0.25,
+    maxOpenPositions: 8,
+    minPositionValue: 15000,
+    atrStopMultiple: 1.5,
+    buyScoreThreshold: 65,
+    holdScoreThreshold: 50,
+    minSentiment: 40,
+    minAlignment: 50,
+    momentumMinRsRating: 85,
+    swingMinRewardRisk: 2.5,
+    targetMultipliers: [2, 3],
+  },
+  balanced: {
+    riskPerTradePct: 0.01,
+    maxPortfolioHeatPct: 0.06,
+    maxPositionPct: 0.15,
+    maxSectorPct: 0.3,
+    maxOpenPositions: 10,
+    minPositionValue: 10000,
+    atrStopMultiple: 2.0,
+    buyScoreThreshold: 60,
+    holdScoreThreshold: 45,
+    minSentiment: 30,
+    minAlignment: 40,
+    momentumMinRsRating: 70,
+    swingMinRewardRisk: 2.0,
+    targetMultipliers: [3, 5, 7],
+  },
+  aggressive: {
+    riskPerTradePct: 0.02, // 2% risk/trade — double balanced
+    maxPortfolioHeatPct: 0.12, // tolerate 12% total open risk
+    maxPositionPct: 0.25, // concentrate up to 25% in one name
+    maxSectorPct: 0.5, // up to 50% in a hot sector
+    maxOpenPositions: 15,
+    minPositionValue: 8000,
+    atrStopMultiple: 3.0, // wider stops → let high-beta winners run
+    buyScoreThreshold: 52, // act on more setups
+    holdScoreThreshold: 42,
+    minSentiment: 25,
+    minAlignment: 35,
+    momentumMinRsRating: 60, // chase strength earlier
+    swingMinRewardRisk: 1.8,
+    targetMultipliers: [3, 6, 10], // reach for bigger payoffs
+  },
+};
+
+const profileName = (process.env.RISK_PROFILE || "balanced") as RiskProfileName;
+const profile = RISK_PROFILES[profileName] || RISK_PROFILES.balanced;
+
+const num = (envVar: string | undefined, fallback: number) =>
+  envVar !== undefined ? parseFloat(envVar) : fallback;
+const int = (envVar: string | undefined, fallback: number) =>
+  envVar !== undefined ? parseInt(envVar) : fallback;
+
+// Resolve capital and the per-position cap first so the min-position floor can
+// be clamped against them. On a small account the fixed ₹10k floor can exceed
+// what one position is even allowed to hold (maxPositionPct × capital), which
+// would reject every signal. The floor only exists to keep the flat ₹15 DP
+// charge below ~0.15% of the position, so cap it at 90% of the per-position
+// budget (and never below ₹3,000, where DP cost is still tolerable).
+const resolvedCapital = parseInt(process.env.CAPITAL || "100000");
+const resolvedMaxPositionPct = num(
+  process.env.MAX_POSITION_PCT,
+  profile.maxPositionPct,
+);
+const positionBudget = resolvedCapital * resolvedMaxPositionPct;
+const requestedMinPosition = int(
+  process.env.MIN_POSITION_VALUE,
+  profile.minPositionValue,
+);
+const resolvedMinPositionValue = Math.max(
+  3000,
+  Math.min(requestedMinPosition, Math.floor(positionBudget * 0.9)),
+);
+
 export const config = {
   zerodha: {
     apiKey: process.env.ZERODHA_API_KEY || "",
     accessToken: process.env.ZERODHA_ACCESS_TOKEN || "",
   },
   openai: { apiKey: process.env.OPENAI_API_KEY || "" },
-  capital: parseInt(process.env.CAPITAL || "100000"),
-  riskPercent: parseFloat(process.env.RISK_PERCENT || "0.02"),
-  maxSignals: parseInt(process.env.MAX_SIGNALS || "20"),
-  runIntervalMinutes: parseInt(process.env.RUN_INTERVAL_MINUTES || "15"),
+  capital: resolvedCapital,
+  riskPercent: num(process.env.RISK_PERCENT, profile.riskPerTradePct),
+  maxSignals: int(process.env.MAX_SIGNALS, 20),
+  runIntervalMinutes: int(process.env.RUN_INTERVAL_MINUTES, 15),
+
+  riskProfile: profileName,
+
+  // ─── Risk management (layered controls) ──────────────────────
+  // Defaults come from the active risk profile; any can be overridden by env.
+  risk: {
+    riskPerTradePct: num(
+      process.env.RISK_PER_TRADE_PCT,
+      profile.riskPerTradePct,
+    ),
+    maxPortfolioHeatPct: num(
+      process.env.MAX_PORTFOLIO_HEAT_PCT,
+      profile.maxPortfolioHeatPct,
+    ),
+    maxPositionPct: resolvedMaxPositionPct,
+    maxSectorPct: num(process.env.MAX_SECTOR_PCT, profile.maxSectorPct),
+    maxOpenPositions: int(
+      process.env.MAX_OPEN_POSITIONS,
+      profile.maxOpenPositions,
+    ),
+    minPositionValue: resolvedMinPositionValue,
+    atrStopMultiple: num(
+      process.env.ATR_STOP_MULTIPLE,
+      profile.atrStopMultiple,
+    ),
+  },
+
+  // ─── Signal gating + strategy tuning (scales with appetite) ──
+  signals: {
+    buyScoreThreshold: num(
+      process.env.BUY_SCORE_THRESHOLD,
+      profile.buyScoreThreshold,
+    ),
+    holdScoreThreshold: num(
+      process.env.HOLD_SCORE_THRESHOLD,
+      profile.holdScoreThreshold,
+    ),
+    minSentiment: num(process.env.MIN_SENTIMENT, profile.minSentiment),
+    minAlignment: num(process.env.MIN_ALIGNMENT, profile.minAlignment),
+    momentumMinRsRating: num(
+      process.env.MOMENTUM_MIN_RS,
+      profile.momentumMinRsRating,
+    ),
+    swingMinRewardRisk: num(
+      process.env.SWING_MIN_RR,
+      profile.swingMinRewardRisk,
+    ),
+    targetMultipliers: profile.targetMultipliers,
+  },
+};
+
+/**
+ * Score weights by suggested holding timeframe: [technical, fundamental, sentiment].
+ *
+ * Fundamentals only matter for long holds — a 1-2 week swing is driven by price
+ * action and catalysts, not by P/E or 5-year growth. So fundamentals are nearly
+ * skipped for SHORT, reduced for MEDIUM (<4 months), and dominant for LONG
+ * (>~5 months). Each row must sum to 1.0.
+ */
+export type ScoreWeights = { tech: number; fund: number; sent: number };
+
+export const TIMEFRAME_WEIGHTS: Record<
+  "SHORT" | "MEDIUM" | "LONG",
+  ScoreWeights
+> = {
+  SHORT: { tech: 0.6, fund: 0.05, sent: 0.35 }, // 1-2 weeks: fundamentals ~ignored
+  MEDIUM: { tech: 0.5, fund: 0.2, sent: 0.3 }, // 1-3 months: fundamentals reduced
+  LONG: { tech: 0.3, fund: 0.5, sent: 0.2 }, // 6+ months: fundamentals dominate
+};
+
+/**
+ * Typical holding period (in calendar days) per timeframe — used to ANNUALIZE
+ * expected return so trades are compared on profit-per-unit-time, not raw %.
+ * A 20% gain in ~14 days annualizes far higher than 20% over ~180 days.
+ */
+export const TIMEFRAME_HOLDING_DAYS: Record<
+  "SHORT" | "MEDIUM" | "LONG",
+  number
+> = {
+  SHORT: 14, // ~2 weeks
+  MEDIUM: 60, // ~2 months
+  LONG: 180, // ~6 months
+};
+
+/**
+ * Position-sizing mode (SIZING_MODE env):
+ *  - "risk"      : classic fixed-fractional off stop distance (default, capped).
+ *  - "conviction": NO position caps — size purely by duration-adjusted return
+ *                  (annualized) × score, so the best profit-per-time trades get
+ *                  the most capital. Sizing is ADVISORY; the user allocates
+ *                  manually, so suggested notionals may exceed cash.
+ * Deployment ceiling (maxTotalDeploymentPct): how many ×capital the suggested
+ * notionals may sum to. 1 = within cash; >1 = margin; 0/unset in conviction
+ * mode = uncapped (signals may sum past capital, you allocate by hand).
+ */
+export const sizing = {
+  mode: (process.env.SIZING_MODE || "risk") as "risk" | "conviction",
+  // In conviction mode default to UNCAPPED (Infinity) per user preference; in
+  // risk mode keep the cash ceiling. Override with MAX_TOTAL_DEPLOYMENT_PCT.
+  maxTotalDeploymentPct: process.env.MAX_TOTAL_DEPLOYMENT_PCT
+    ? parseFloat(process.env.MAX_TOTAL_DEPLOYMENT_PCT)
+    : (process.env.SIZING_MODE || "risk") === "conviction"
+      ? Infinity
+      : 1.0,
 };
 
 export const SECTOR_SYMBOLS: Record<string, string[]> = {

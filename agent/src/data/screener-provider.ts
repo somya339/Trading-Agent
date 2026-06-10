@@ -17,7 +17,7 @@ export class ScreenerFundamentalsProvider implements FundamentalsProvider {
   constructor(requestDelayMs = DEFAULT_DELAY_MS) {
     this.requestDelayMs = requestDelayMs;
     this.http = axios.create({
-      timeout: 15_000,
+      timeout: 5000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +

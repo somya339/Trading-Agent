@@ -13,6 +13,13 @@ export type { SectorData, SectorScanResult };
 
 const NSE_TOP_SECTORS = Object.keys(SECTOR_SYMBOLS);
 
+interface RawSector {
+  sector: string;
+  theme: string;
+  trendStrength: number;
+  rationale?: string;
+}
+
 export class SectorAnalyst {
   private openai: OpenAI;
   private zerodha: ZerodhaClient;
@@ -47,9 +54,7 @@ export class SectorAnalyst {
     };
   }
 
-  private async getHotSectorsFromAI(): Promise<
-    Array<{ sector: string; theme: string; trendStrength: number }>
-  > {
+  private async getHotSectorsFromAI(): Promise<RawSector[]> {
     let headlines = "";
     try {
       headlines = await this.fetchMarketHeadlines();
@@ -72,27 +77,37 @@ ${this.memory.learnings.length > 0 ? `- Key learnings: ${this.memory.learnings.s
 `
       : "";
 
-    const prompt = `Today is ${today}. You are a senior Indian market strategist.
+    const sourcingNote = headlines
+      ? `You have REAL market headlines below — anchor your judgement on this fresh evidence first, then your knowledge. Mark dataFreshness "headlines".`
+      : `No live headlines were available, so you are reasoning from prior knowledge as of your training — your read of "right now" may be stale. Be appropriately cautious and mark dataFreshness "model-knowledge".`;
 
-Available NSE sectors: ${NSE_TOP_SECTORS.join(", ")}
+    const prompt = `Today is ${today}. You are a senior Indian (NSE) market strategist running a sector-rotation book.
+
+Available NSE sectors (choose ONLY from these exact names): ${NSE_TOP_SECTORS.join(", ")}
+
+${sourcingNote}
 
 ${headlines ? `Recent market headlines:\n${headlines}\n\n` : ""}
 ${memoryContext}
 
-Based on current macro trends, government policies, global cues, sector rotation patterns in Indian markets${this.memory ? ", and the historical performance insights above" : ""}, identify the TOP 5-6 HOTTEST trending sectors right now that offer the best investment opportunities.
+GOAL: identify the TOP 5-6 sectors with the strongest forward momentum and clearest catalysts for the next 1-3 months${this.memory ? ", informed by the historical performance insights above" : ""}.
 
-For each sector:
-- It must be genuinely trending with strong momentum
-- Consider: budget allocations, policy tailwinds, earnings growth, FII/DII flows, global trends
-- Rank them by opportunity strength
+Method (reason through this internally before answering):
+1. For each plausible sector, weigh: budget/policy tailwinds, earnings-growth trajectory, FII/DII flows, global cues, and where it sits in the rotation cycle (early-cycle leaders beat late/exhausted moves).
+2. Prefer sectors EARLY in their move with a durable catalyst over ones that have already run hard (avoid chasing exhausted trends).
+3. Rank by conviction.
 
-Return JSON:
+Define trendStrength (1-10): 9-10 = powerful fresh catalyst + broad participation; 6-8 = solid trend, clear driver; 3-5 = improving but early/unconfirmed; 1-2 = weak/speculative.
+
+Return ONLY this JSON:
 {
+  "dataFreshness": "<headlines|model-knowledge>",
   "hotSectors": [
     {
       "sector": "<exact sector name from the list>",
-      "theme": "<one-line reason why it's hot>",
-      "trendStrength": <1-10>
+      "theme": "<the specific catalyst driving it, not a generic label>",
+      "trendStrength": <integer 1-10>,
+      "rationale": "<one line: why now, and why it isn't already exhausted>"
     }
   ]
 }`;
@@ -108,19 +123,80 @@ Return JSON:
         { role: "user", content: prompt },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 1000, // Higher for deeper macro analysis
+      // Reasoning model spends ~300-500 tokens thinking; real responses total
+      // ~800. 4000 gives ample headroom. NOTE: must stay under the model's
+      // 128000 ceiling — an oversized value (250000) throws a 400 that the
+      // pipeline's try/catch swallowed → 0 sectors → 0 trades (the bug).
+      max_completion_tokens: 20000,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    const sectors: { sector: string; theme: string; trendStrength: number }[] =
-      result.hotSectors || [];
+    const choice = response.choices[0];
+    const content = choice.message.content || "";
 
-    const valid = sectors.filter((s) => SECTOR_SYMBOLS[s.sector]);
+    // Fail LOUDLY instead of silently returning 0 sectors.
+    if (choice.finish_reason === "length") {
+      console.warn(
+        "   ⚠ Sector AI response was TRUNCATED (hit token cap) — raise max_completion_tokens",
+      );
+    }
+    if (!content.trim()) {
+      throw new Error("Sector AI returned empty content");
+    }
+
+    let result: { hotSectors?: RawSector[] };
+    try {
+      result = JSON.parse(content);
+    } catch (err) {
+      console.warn(
+        `   ⚠ Sector AI returned unparseable JSON (${content.length} chars): ${(err as Error).message}`,
+      );
+      throw new Error("Sector AI JSON parse failed");
+    }
+
+    const sectors: RawSector[] = result.hotSectors || [];
+
+    // Map each AI sector name back to a real config sector. Exact match first,
+    // then a normalized fuzzy match so minor label drift (case, "&" vs "and",
+    // punctuation/spacing) doesn't silently drop the sector.
+    const valid: RawSector[] = [];
+    const dropped: string[] = [];
+    for (const s of sectors) {
+      const canonical = this.resolveSectorName(s.sector);
+      if (canonical) valid.push({ ...s, sector: canonical });
+      else dropped.push(s.sector);
+    }
+
     console.log(
-      `   AI identified: ${valid.map((s) => `${s.sector} (${s.trendStrength}/10)`).join(", ")}`,
+      `   AI identified: ${valid.map((s) => `${s.sector} (${s.trendStrength}/10)`).join(", ") || "(none)"}`,
     );
+    if (dropped.length > 0) {
+      console.warn(`   ⚠ Dropped unrecognized sector labels: ${dropped.join(", ")}`);
+    }
 
     return valid.slice(0, 6);
+  }
+
+  /** Resolve an AI-provided sector label to a canonical SECTOR_SYMBOLS key. */
+  private resolveSectorName(name: string): string | null {
+    if (!name) return null;
+    if (SECTOR_SYMBOLS[name]) return name; // exact
+
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .replaceAll("&", "and")
+        .replaceAll(/[^a-z0-9]+/g, "")
+        .trim();
+    const target = norm(name);
+    for (const key of NSE_TOP_SECTORS) {
+      if (norm(key) === target) return key;
+    }
+    // Loose containment (e.g. "Banking" → "Banking & Finance").
+    for (const key of NSE_TOP_SECTORS) {
+      const nk = norm(key);
+      if (nk.includes(target) || target.includes(nk)) return key;
+    }
+    return null;
   }
 
   private async getBestStocksPerSector(

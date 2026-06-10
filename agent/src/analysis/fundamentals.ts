@@ -309,7 +309,11 @@ export class FundamentalAnalyzer {
     concerns: string[] = [],
   ): string {
     const avgScore =
-      (scores.valuation + scores.profitability + scores.growth + scores.health) / 4;
+      (scores.valuation +
+        scores.profitability +
+        scores.growth +
+        scores.health) /
+      4;
 
     if (avgScore > 75) {
       return `Fundamentally strong company with ${valuation.toLowerCase()} valuation and ${profitability.toLowerCase()} profitability. ${growth} growth trajectory. Excellent for ${growth === "High" ? "growth" : "value"} investors.`;
@@ -323,10 +327,6 @@ export class FundamentalAnalyzer {
   }
 
   private async fetchFundamentals(symbol: string): Promise<FundamentalData> {
-    if (process.env.USE_MOCK_FUNDAMENTALS === "true") {
-      return this.getMockFundamentals(symbol);
-    }
-
     const providerData = await this.provider.fetchFundamentals(symbol);
     if (!providerData) {
       throw new Error(`No fundamental data for ${symbol}`);
@@ -387,73 +387,6 @@ export class FundamentalAnalyzer {
       promoterChange: providerData.promoterChange ?? null,
       sectorPE,
       sectorPB,
-    };
-  }
-
-  /** Dev-only fallback when USE_MOCK_FUNDAMENTALS=true */
-  private getMockFundamentals(symbol: string): FundamentalData {
-    const mockData: Record<string, Partial<FundamentalData>> = {
-      RELIANCE: {
-        pe: 23.5,
-        pb: 2.1,
-        marketCap: 1700000,
-        dividendYield: 0.3,
-        roe: 9.5,
-        roa: 5.2,
-        netMargin: 7.5,
-        revenueGrowth: 25.0,
-        profitGrowth: 45.0,
-        epsGrowth: 42.0,
-        debtToEquity: 0.48,
-        currentRatio: 1.2,
-        interestCoverage: 5.8,
-        promoterHolding: 50.4,
-        promoterChange: 0.0,
-        sectorPE: 20.5,
-        sectorPB: 2.5,
-      },
-      TCS: {
-        pe: 28.5,
-        pb: 12.2,
-        marketCap: 1500000,
-        dividendYield: 1.5,
-        roe: 45.2,
-        roa: 38.5,
-        netMargin: 20.5,
-        revenueGrowth: 12.5,
-        profitGrowth: 15.2,
-        epsGrowth: 16.8,
-        debtToEquity: 0.0,
-        currentRatio: 3.5,
-        interestCoverage: null,
-        promoterHolding: 72.3,
-        promoterChange: 0.0,
-        sectorPE: 25.0,
-        sectorPB: 10.0,
-      },
-    };
-
-    const data = mockData[symbol] || {};
-
-    return {
-      symbol,
-      pe: data.pe ?? null,
-      pb: data.pb ?? null,
-      marketCap: data.marketCap ?? 5000,
-      dividendYield: data.dividendYield ?? null,
-      roe: data.roe ?? null,
-      roa: data.roa ?? null,
-      netMargin: data.netMargin ?? null,
-      revenueGrowth: data.revenueGrowth ?? null,
-      profitGrowth: data.profitGrowth ?? null,
-      epsGrowth: data.epsGrowth ?? null,
-      debtToEquity: data.debtToEquity ?? null,
-      currentRatio: data.currentRatio ?? null,
-      interestCoverage: data.interestCoverage ?? null,
-      promoterHolding: data.promoterHolding ?? null,
-      promoterChange: data.promoterChange ?? null,
-      sectorPE: data.sectorPE ?? null,
-      sectorPB: data.sectorPB ?? null,
     };
   }
 

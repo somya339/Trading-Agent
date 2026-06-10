@@ -71,9 +71,11 @@ export class ZerodhaWatchlistManager {
   async createWatchlistFromSignals(
     signals: InvestmentSignal[],
   ): Promise<{ watchlistId: number; name: string; added: number }> {
-    const eligible = signals.filter((s) => s.action !== "SKIP");
+    // Add ALL signals regardless of action — the user does their own analysis
+    // on whatever lands in the watchlist, so BUY/HOLD/SKIP are all included.
+    const eligible = signals;
     if (eligible.length === 0) {
-      throw new Error("No BUY/HOLD signals to add to watchlist");
+      throw new Error("No signals to add to watchlist");
     }
 
     console.log("\n📋 Creating Zerodha watchlist...");
@@ -152,7 +154,7 @@ export class ZerodhaWatchlistManager {
     }
 
     const targetsStr = targets.map((t) => `₹${t.toFixed(0)}`).join(" / ");
-    const note = `CMP ₹${signal.price.toFixed(0)} | Target ${targetsStr} | SL ₹${signal.stopLoss.toFixed(0)} | ${signal.holdingPeriod} | Score ${signal.overallScore}/100`;
+    const note = `CMP ₹${signal.price.toFixed(0)}-TGT ${targetsStr}-SL ₹${signal.stopLoss.toFixed(0)}-${signal.holdingPeriod}-Score ${signal.overallScore}/100`;
 
     const addBody = (exch: string) =>
       new URLSearchParams({

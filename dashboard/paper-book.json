@@ -1,0 +1,33 @@
+{
+  "startingCapital": 50000,
+  "cash": 42492.806075,
+  "open": [
+    {
+      "id": "RBLBANK-2026-06-10",
+      "symbol": "RBLBANK",
+      "sector": "Banking & Finance",
+      "strategy": "MEDIUM",
+      "entryDate": "2026-06-10",
+      "entryPrice": 357.485425,
+      "quantity": 21,
+      "stopLoss": 334.9891315191366,
+      "targets": [
+        422.83260544259014,
+        466.7543424043169,
+        510.67607936604367
+      ],
+      "liquidity": "MEDIUM",
+      "lastPrice": 357.485425,
+      "lastDate": "2026-06-10",
+      "unrealizedPct": 0
+    }
+  ],
+  "closed": [],
+  "equityCurve": [
+    {
+      "date": "2026-06-10",
+      "equity": 50000
+    }
+  ],
+  "updatedAt": "2026-06-10T19:04:45.041Z"
+}

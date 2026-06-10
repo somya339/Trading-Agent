@@ -11,7 +11,8 @@
     "test-kite": "node test-kite.cjs",
     "test-news": "tsx test-news-scraper.js",
     "test-fundamentals": "tsx test-fundamentals.ts",
-    "test-watchlist": "tsx test-watchlist.ts"
+    "test-watchlist": "tsx test-watchlist.ts",
+    "backtest": "tsx agent/src/backtest/run.ts"
   },
   "dependencies": {
     "axios": "^1.16.1",

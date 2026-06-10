@@ -200,7 +200,8 @@ export interface InvestmentSignal {
 
   // Timeframe
   suggestedTimeframe: "SHORT" | "MEDIUM" | "LONG";
-  expectedReturn: number;
+  expectedReturn: number; // expected % gain to first target (absolute)
+  annualizedReturn: number; // expectedReturn normalized to a yearly rate (duration-adjusted)
   holdingPeriod: string;
 
   // Analysis results

@@ -61,10 +61,11 @@ export class TechnicalPipeline {
         let hourlyAtr = price * 0.02;
         let hourlyTrend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
 
-        if (hourly.closes.length >= 20) {
+        if (hourly.closes.length >= 50) {
           hourlyRsi = calculateRSI(hourly.closes, 14);
           hourlyMacd = calculateMACD(hourly.closes);
           hourlySma20 = calculateSMA(hourly.closes, 20);
+          const hourlySma50 = calculateSMA(hourly.closes, 50);
           hourlyEma12 = calculateEMA(hourly.closes, 12);
           hourlyAtr = calculateATR(
             hourly.highs,
@@ -72,10 +73,12 @@ export class TechnicalPipeline {
             hourly.closes,
             14,
           );
+          // Fixed: compare SMA20 vs SMA50 (was comparing SMA20 to itself, so
+          // the short>long condition could never be true and hourly was dead).
           hourlyTrend = this.detectTrend(
             hourly.closes,
             hourlySma20,
-            hourlySma20,
+            hourlySma50,
           );
         }
 
@@ -182,8 +185,11 @@ export class TechnicalPipeline {
 
     if (mtf.daily.macd.value > mtf.daily.macd.signal) score += 15;
 
-    if (mtf.daily.volumeRatio > 1.5) score += 15;
-    else if (mtf.daily.volumeRatio > 1.0) score += 8;
+    // Volume only confirms strength when price is also rising. High volume on a
+    // down day is distribution (bearish), so don't reward it.
+    const priceRising = mtf.daily.trend === "UP";
+    if (priceRising && mtf.daily.volumeRatio > 1.5) score += 15;
+    else if (priceRising && mtf.daily.volumeRatio > 1.0) score += 8;
 
     const currentPrice = mtf.daily.currentPrice;
     if (currentPrice > mtf.daily.sma20 && currentPrice > mtf.daily.sma50)

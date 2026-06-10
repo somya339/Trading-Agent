@@ -1,8 +1,15 @@
 /**
  * Indian market news scraping agent.
  *
- * Sources: NSE/BSE corporate announcements, RSS feeds (ET, MC, BS, Mint),
- * Yahoo Finance, Google News, optional Reddit sentiment.
+ * Sources (all verified reachable without auth/cookies):
+ *   - Google News RSS (per-symbol)   — primary, ~100 results/query
+ *   - StockTwits JSON (per-symbol)    — 30 recent messages + bull/bear tags
+ *   - Bing News RSS (per-symbol)      — fallback
+ *   - General market RSS: ET, Moneycontrol, LiveMint
+ *   - BSE corporate announcements (JSON, no cookies)
+ *
+ * Removed (unreliable): NSE announcements (Akamai/cookie-gated, intermittent),
+ * Yahoo Finance RSS (HTTP 429 rate-limited), Business Standard RSS (HTTP 403).
  *
  * `NewsScraperAgent` preserves the existing scrapeNews / getCompanyName API.
  * `IndianNewsAgent` + `createNewsAgent` support polling-based workflows.
@@ -49,6 +56,8 @@ export interface NewsAgentConfig {
 // Constants
 // ─────────────────────────────────────────────
 
+// General market RSS feeds (verified reachable). Business Standard (403),
+// Yahoo (429), and a few flaky ones were removed.
 const RSS_FEEDS: Record<string, string> = {
   "Economic Times Markets":
     "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
@@ -56,24 +65,15 @@ const RSS_FEEDS: Record<string, string> = {
     "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
   "Moneycontrol Latest": "https://www.moneycontrol.com/rss/latestnews.xml",
   "Moneycontrol Markets": "https://www.moneycontrol.com/rss/marketreports.xml",
-  "Business Standard Markets":
-    "https://www.business-standard.com/rss/markets-106.rss",
   "LiveMint Markets": "https://www.livemint.com/rss/markets",
-  "NDTV Profit": "https://www.ndtvprofit.com/rss",
-  "Financial Express Market": "https://www.financialexpress.com/market/feed/",
-  "Hindu BusinessLine":
-    "https://www.thehindubusinessline.com/markets/?service=rss",
 };
-
-const NSE_BASE = "https://www.nseindia.com";
-const NSE_ANNOUNCEMENTS_API =
-  "https://www.nseindia.com/api/corporate-announcements?index=equities";
 
 const BSE_ANNOUNCEMENTS_API =
   "https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=&strScrip=&strSearch=P&strToDate=&strType=C&subcategory=-1";
 
-// Alternative NSE endpoint that doesn't require cookies (less data but more reliable)
-const NSE_ALTERNATIVE_API = "https://www.nseindia.com/api/merged-daily-reports?key=favmerged";
+// StockTwits public stream — no auth, returns recent messages + bull/bear tags.
+const STOCKTWITS_SYMBOL_API = (symbol: string) =>
+  `https://api.stocktwits.com/api/2/streams/symbol/${symbol}.NSE.json`;
 
 const POSITIVE_WORDS = [
   "profit",
@@ -178,11 +178,9 @@ export const COMPANY_MAPPING: Record<string, string> = {
 export class IndianNewsAgent {
   private config: Required<NewsAgentConfig>;
   private http: AxiosInstance;
-  private nseHttp: AxiosInstance;
   private xmlParser: XMLParser;
   private seenUrls = new Set<string>();
   private pollTimer?: ReturnType<typeof setInterval>;
-  private nseCookies = "";
 
   constructor(config: NewsAgentConfig) {
     this.config = {
@@ -195,7 +193,7 @@ export class IndianNewsAgent {
     };
 
     this.http = axios.create({
-      timeout: 10_000,
+      timeout: 5000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
@@ -208,26 +206,6 @@ export class IndianNewsAgent {
       },
     });
 
-    this.nseHttp = axios.create({
-      timeout: 15_000,
-      baseURL: NSE_BASE,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        Referer: "https://www.nseindia.com/",
-        Accept: "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        Connection: "keep-alive",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-      },
-    });
-
     this.xmlParser = new XMLParser({
       ignoreAttributes: false,
       parseAttributeValue: true,
@@ -236,7 +214,6 @@ export class IndianNewsAgent {
 
   async start(): Promise<void> {
     console.log("[IndianNewsAgent] Starting…");
-    await this.refreshNseCookies();
     await this.poll();
     this.pollTimer = setInterval(
       () => void this.poll(),
@@ -255,25 +232,20 @@ export class IndianNewsAgent {
   }
 
   private async poll(): Promise<void> {
-    const [rssNews, nseAnns, bseAnns, yahooNews, redditItems] =
-      await Promise.allSettled([
-        this.fetchAllRssFeeds(),
-        this.fetchNseAnnouncements(),
-        this.fetchBseAnnouncements(),
-        this.fetchYahooFinanceNews(),
-        this.config.enableReddit
-          ? this.fetchRedditSentiment()
-          : Promise.resolve([]),
-      ]);
+    const [rssNews, bseAnns, redditItems] = await Promise.allSettled([
+      this.fetchAllRssFeeds(),
+      this.fetchBseAnnouncements(),
+      this.config.enableReddit
+        ? this.fetchRedditSentiment()
+        : Promise.resolve([]),
+    ]);
 
     const allNews: RawNewsItem[] = [
       ...(rssNews.status === "fulfilled" ? rssNews.value : []),
-      ...(yahooNews.status === "fulfilled" ? yahooNews.value : []),
       ...(redditItems.status === "fulfilled" ? redditItems.value : []),
     ].filter((n) => !this.seenUrls.has(n.url));
 
     const allAnns: CorporateAnnouncement[] = [
-      ...(nseAnns.status === "fulfilled" ? nseAnns.value : []),
       ...(bseAnns.status === "fulfilled" ? bseAnns.value : []),
     ];
 
@@ -296,161 +268,6 @@ export class IndianNewsAgent {
     if (relevantAnns.length > 0) {
       console.log(`[IndianNewsAgent] ${relevantAnns.length} new announcements`);
       this.config.onAnnouncement(relevantAnns);
-    }
-  }
-
-  private async loadSavedCookies(): Promise<boolean> {
-    try {
-      // Try to load cookies from the refresh script's cache
-      const cookiePath = ".nse-cookies.json";
-      const fs = await import("fs");
-
-      if (fs.existsSync(cookiePath)) {
-        const data = fs.readFileSync(cookiePath, "utf8");
-        const cookieData = JSON.parse(data);
-
-        // Check if cookies are not too old (< 20 minutes)
-        const age = Date.now() - new Date(cookieData.timestamp).getTime();
-        const ageMinutes = Math.floor(age / 60000);
-
-        if (ageMinutes < 20) {
-          this.nseCookies = cookieData.cookies;
-          this.nseHttp.defaults.headers.common["Cookie"] = this.nseCookies;
-          this.nseHttp.defaults.headers.common["User-Agent"] = cookieData.userAgent;
-          console.log(`[IndianNewsAgent] Loaded cached NSE cookies (${ageMinutes}min old)`);
-          return true;
-        } else {
-          console.log(`[IndianNewsAgent] Cached cookies too old (${ageMinutes}min)`);
-        }
-      }
-    } catch (err) {
-      // Ignore errors, will try fresh refresh
-    }
-    return false;
-  }
-
-  private async refreshNseCookies(retries = 3): Promise<void> {
-    // First, try to load saved cookies
-    const loaded = await this.loadSavedCookies();
-    if (loaded) return;
-
-    // If no saved cookies or expired, try to get fresh ones
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        // Add delay between retries to avoid rate limiting
-        if (attempt > 0) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 2000 * Math.pow(2, attempt)),
-          );
-        }
-
-        const res = await this.nseHttp.get("/", {
-          validateStatus: (status) => status === 200,
-        });
-
-        const setCookieHeader = res.headers["set-cookie"];
-        if (setCookieHeader) {
-          this.nseCookies = setCookieHeader
-            .map((c: string) => c.split(";")[0])
-            .join("; ");
-          this.nseHttp.defaults.headers.common["Cookie"] = this.nseCookies;
-          console.log("[IndianNewsAgent] NSE session cookie refreshed.");
-
-          // Save cookies for future use
-          try {
-            const fs = await import("fs");
-            const cookieData = {
-              cookies: this.nseCookies,
-              userAgent: this.nseHttp.defaults.headers.common["User-Agent"],
-              timestamp: new Date().toISOString(),
-            };
-            fs.writeFileSync(".nse-cookies.json", JSON.stringify(cookieData, null, 2));
-          } catch (err) {
-            // Ignore save errors
-          }
-
-          return;
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (attempt === retries - 1) {
-          console.warn(
-            `[IndianNewsAgent] NSE cookie refresh failed after ${retries} attempts:`,
-            message,
-          );
-          console.warn(
-            "[IndianNewsAgent] Run 'node refresh-nse-cookies.js --save' to manually refresh cookies.",
-          );
-          console.warn(
-            "[IndianNewsAgent] Will skip NSE announcements and use other sources.",
-          );
-        }
-      }
-    }
-  }
-
-  private async fetchNseAnnouncements(): Promise<CorporateAnnouncement[]> {
-    // Skip NSE if we don't have cookies
-    if (!this.nseCookies) {
-      console.warn(
-        "[IndianNewsAgent] Skipping NSE announcements - no valid session",
-      );
-      return [];
-    }
-
-    try {
-      // Add small delay before API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const res = await this.nseHttp.get(NSE_ANNOUNCEMENTS_API, {
-        validateStatus: (status) => status === 200,
-      });
-      const data: Record<string, unknown>[] = res.data?.data ?? [];
-
-      console.log("[IndianNewsAgent] NSE announcements fetched:", data.length);
-      return data.slice(0, 50).map((item) => ({
-        symbol: String(item.symbol ?? ""),
-        company: String(item.comp ?? ""),
-        subject: String(item.subject ?? ""),
-        description: String(item.body ?? item.subject ?? ""),
-        date: new Date(String(item.sort_date ?? item.an_dt ?? Date.now())),
-        exchange: "NSE" as const,
-        filingUrl: item.attchmntFile
-          ? `https://nseindia.com/${String(item.attchmntFile)}`
-          : undefined,
-      }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn("[IndianNewsAgent] NSE announcements error:", message);
-      console.warn("[IndianNewsAgent] Trying alternative NSE endpoint...");
-      return this.fetchNseAlternative();
-    }
-  }
-
-  private async fetchNseAlternative(): Promise<CorporateAnnouncement[]> {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // This endpoint is more reliable but provides less detailed data
-      const res = await this.http.get(NSE_ALTERNATIVE_API, {
-        validateStatus: (status) => status === 200,
-      });
-
-      const data: Record<string, unknown>[] = Array.isArray(res.data) ? res.data : [];
-      console.log("[IndianNewsAgent] Alternative NSE data fetched:", data.length);
-
-      // Transform the alternative format to our announcement format
-      return data.slice(0, 30).map((item) => ({
-        symbol: String(item.symbol ?? ""),
-        company: String(item.companyName ?? ""),
-        subject: "Market Activity Update",
-        description: `Trading data update for ${String(item.symbol ?? "")}`,
-        date: new Date(),
-        exchange: "NSE" as const,
-      }));
-    } catch (err) {
-      console.warn("[IndianNewsAgent] Alternative NSE endpoint also failed");
-      return [];
     }
   }
 
@@ -539,21 +356,6 @@ export class IndianNewsAgent {
     }
   }
 
-  private async fetchYahooFinanceNews(): Promise<RawNewsItem[]> {
-    const results = await Promise.allSettled(
-      this.config.watchlist.map((symbol) =>
-        this.fetchRssFeed(
-          `Yahoo Finance (${symbol})`,
-          `https://finance.yahoo.com/rss/headline?s=${symbol}.NS`,
-        ),
-      ),
-    );
-
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
-  }
-
   async fetchGoogleNews(
     symbol: string,
     company: string,
@@ -561,6 +363,56 @@ export class IndianNewsAgent {
     const query = encodeURIComponent(`${company} NSE stock`);
     const url = `https://news.google.com/rss/search?q=${query}&hl=en-IN&gl=IN&ceid=IN:en`;
     return this.fetchRssFeed(`Google News (${symbol})`, url);
+  }
+
+  async fetchBingNews(symbol: string, company: string): Promise<RawNewsItem[]> {
+    const query = encodeURIComponent(`${company} stock NSE`);
+    const url = `https://www.bing.com/news/search?q=${query}&format=rss`;
+    return this.fetchRssFeed(`Bing News (${symbol})`, url);
+  }
+
+  /**
+   * StockTwits public stream for an NSE symbol. No auth required. Returns up to
+   * 30 recent messages and uses the platform's own bull/bear tag when present,
+   * falling back to keyword sentiment.
+   */
+  async fetchStockTwits(symbol: string): Promise<RawNewsItem[]> {
+    try {
+      const res = await this.http.get(STOCKTWITS_SYMBOL_API(symbol), {
+        validateStatus: (status) => status === 200,
+      });
+      const messages: Record<string, unknown>[] = res.data?.messages ?? [];
+
+      return messages.map((m) => {
+        const body = String(m.body ?? "");
+        const created = String(m.created_at ?? "");
+        const id = String(m.id ?? "");
+        const entities = m.entities as
+          | { sentiment?: { basic?: string } }
+          | undefined;
+        const basic = entities?.sentiment?.basic; // "Bullish" | "Bearish" | null
+        const sentiment: RawNewsItem["sentiment"] =
+          basic === "Bullish"
+            ? "positive"
+            : basic === "Bearish"
+              ? "negative"
+              : this.config.enableSentiment
+                ? this.scoreSentiment(body)
+                : undefined;
+
+        return {
+          title: body.slice(0, 140),
+          summary: body.slice(0, 300),
+          url: `https://stocktwits.com/message/${id}`,
+          publishedAt: created ? new Date(created) : new Date(),
+          source: "StockTwits",
+          tickers: [symbol],
+          sentiment,
+        } satisfies RawNewsItem;
+      });
+    } catch {
+      return [];
+    }
   }
 
   private async fetchRedditSentiment(): Promise<RawNewsItem[]> {
@@ -626,80 +478,17 @@ export class IndianNewsAgent {
     return "neutral";
   }
 
-  async getAnnouncementsForSymbol(
-    symbol: string,
-  ): Promise<CorporateAnnouncement[]> {
-    // Try to refresh cookies if we don't have them
-    if (!this.nseCookies) {
-      await this.refreshNseCookies();
-    }
-
-    // Skip if still no cookies after refresh attempt
-    if (!this.nseCookies) {
-      console.warn(
-        `[IndianNewsAgent] Skipping NSE announcements for ${symbol} - no valid session`,
-      );
-      return [];
-    }
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const url = `${NSE_ANNOUNCEMENTS_API}&symbol=${symbol}`;
-      const res = await this.nseHttp.get(url, {
-        validateStatus: (status) => status === 200,
-      });
-      const data: Record<string, unknown>[] = res.data?.data ?? [];
-      return data.map((item) => ({
-        symbol,
-        company: String(item.comp ?? ""),
-        subject: String(item.subject ?? ""),
-        description: String(item.body ?? item.subject ?? ""),
-        date: new Date(String(item.sort_date ?? item.an_dt ?? Date.now())),
-        exchange: "NSE" as const,
-        filingUrl: item.attchmntFile
-          ? `https://nseindia.com/${String(item.attchmntFile)}`
-          : undefined,
-      }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(
-        `[IndianNewsAgent] NSE announcements error for ${symbol}:`,
-        message,
-      );
-      return [];
-    }
-  }
-
   async getNewsForSymbol(
     symbol: string,
     company?: string,
   ): Promise<RawNewsItem[]> {
-    // Prioritize sources that don't require NSE cookies
-    const [yahoo, google, rss, anns] = await Promise.allSettled([
-      this.fetchRssFeed(
-        `Yahoo Finance (${symbol})`,
-        `https://finance.yahoo.com/rss/headline?s=${symbol}.NS`,
-      ),
+    // All sources are no-auth and run in parallel; any can fail independently.
+    const [google, bing, stocktwits, rss] = await Promise.allSettled([
       company ? this.fetchGoogleNews(symbol, company) : Promise.resolve([]),
+      company ? this.fetchBingNews(symbol, company) : Promise.resolve([]),
+      this.fetchStockTwits(symbol),
       this.fetchAllRssFeeds(),
-      // NSE announcements are fetched last and may fail
-      this.getAnnouncementsForSymbol(symbol),
     ]);
-
-    const newsFromAnns: RawNewsItem[] = (
-      anns.status === "fulfilled" ? anns.value : []
-    ).map((a) => ({
-      title: a.subject,
-      summary: a.description,
-      url: a.filingUrl ?? "https://www.nseindia.com",
-      publishedAt: a.date,
-      source: "NSE Corporate Announcements",
-      tickers: [a.symbol],
-      sentiment: this.config.enableSentiment
-        ? this.scoreSentiment(a.subject)
-        : undefined,
-    }));
 
     const rssFiltered =
       rss.status === "fulfilled"
@@ -714,18 +503,25 @@ export class IndianNewsAgent {
           )
         : [];
 
+    const get = (r: PromiseSettledResult<RawNewsItem[]>) =>
+      r.status === "fulfilled" ? r.value : [];
+
     const allNews = [
-      ...(yahoo.status === "fulfilled" ? yahoo.value : []),
-      ...(google.status === "fulfilled" ? google.value : []),
-      ...newsFromAnns,
+      ...get(google),
+      ...get(bing),
+      ...get(stocktwits),
       ...rssFiltered,
     ];
 
     console.log(
-      `[IndianNewsAgent] Total news for ${symbol}: ${allNews.length} (Yahoo: ${yahoo.status === "fulfilled" ? yahoo.value.length : 0}, Google: ${google.status === "fulfilled" ? google.value.length : 0}, RSS: ${rssFiltered.length}, NSE: ${newsFromAnns.length})`,
+      `[IndianNewsAgent] Total news for ${symbol}: ${allNews.length} ` +
+        `(Google: ${get(google).length}, Bing: ${get(bing).length}, ` +
+        `StockTwits: ${get(stocktwits).length}, RSS: ${rssFiltered.length})`,
     );
 
-    return allNews.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+    return allNews.sort(
+      (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime(),
+    );
   }
 }
 

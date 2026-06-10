@@ -10,7 +10,12 @@
  * Output: Investment signals written to trades.json + memory.json
  */
 
-import { config } from "../config/index.js";
+import {
+  config,
+  TIMEFRAME_WEIGHTS,
+  TIMEFRAME_HOLDING_DAYS,
+  sizing,
+} from "../config/index.js";
 import type {
   InvestmentSignal,
   TradingMemory,
@@ -29,6 +34,8 @@ import {
   saveMemory,
   loadMemory,
 } from "../utils/storage.js";
+import { allocate, type SizingCandidate } from "../risk/engine.js";
+import { PaperTracker } from "../paper/tracker.js";
 import { sleep } from "openai/core.js";
 
 export class InvestmentAgent {
@@ -57,7 +64,6 @@ export class InvestmentAgent {
     this.sentimentAnalyzer = new SentimentAnalyzer(
       config.openai.apiKey,
       newsScraper,
-      this.memory,
     );
     const enctoken = process.env.ZERODHA_ENCTOKEN;
     const publicToken = process.env.ZERODHA_PUBLIC_TOKEN;
@@ -65,12 +71,7 @@ export class InvestmentAgent {
     const kfSession = process.env.ZERODHA_KF_SESSION;
     this.watchlistManager =
       enctoken && publicToken && userId
-        ? new ZerodhaWatchlistManager(
-            enctoken,
-            publicToken,
-            userId,
-            kfSession,
-          )
+        ? new ZerodhaWatchlistManager(enctoken, publicToken, userId, kfSession)
         : null;
     if (this.watchlistManager) {
       console.log("📋 Zerodha watchlist manager ready");
@@ -84,6 +85,18 @@ export class InvestmentAgent {
   async run() {
     console.log("\n🚀 Investment Opportunity Finder — 5-Step Pipeline\n");
     console.log("═".repeat(60));
+    console.log(
+      `⚙️  Risk profile: ${config.riskProfile.toUpperCase()} | ` +
+        `risk/trade ${(config.risk.riskPerTradePct * 100).toFixed(1)}% | ` +
+        `heat cap ${(config.risk.maxPortfolioHeatPct * 100).toFixed(0)}% | ` +
+        `max ${config.risk.maxOpenPositions} positions | ` +
+        `BUY ≥ ${config.signals.buyScoreThreshold}`,
+    );
+    if (config.riskProfile === "aggressive") {
+      console.log(
+        "   ⚠ AGGRESSIVE: amplified returns AND losses. Paper-trade to confirm edge before live capital.",
+      );
+    }
 
     await this.zerodha.initialize();
     await this.initMemory();
@@ -137,7 +150,9 @@ export class InvestmentAgent {
       await this.technicalPipeline.runMultiTimeframeTechnical(candidateSymbols);
 
     const technicallyValid = technicalResults.filter(
-      (r) => r.alignmentScore >= 40 && r.mtf.daily.trend !== "DOWN",
+      (r) =>
+        r.alignmentScore >= config.signals.minAlignment &&
+        r.mtf.daily.trend !== "DOWN",
     );
     console.log(
       `   ✅ ${technicallyValid.length} stocks passed technical filter`,
@@ -165,20 +180,37 @@ export class InvestmentAgent {
       sectorNameMap,
     );
 
-    signals.sort((a, b) => b.overallScore - a.overallScore);
+    // Ranking: in conviction mode, prioritize duration-adjusted return
+    // (annualized %) weighted by score confidence — the best profit-per-time
+    // trades come first. In risk mode, keep pure score ordering.
+    const rankValue = (s: InvestmentSignal) =>
+      sizing.mode === "conviction"
+        ? s.annualizedReturn * (s.overallScore / 100)
+        : s.overallScore;
+    signals.sort((a, b) => rankValue(b) - rankValue(a));
     const topSignals = signals.slice(0, config.maxSignals);
 
+    // ── Portfolio-level risk gate ──────────────────────────────
+    // Enforces portfolio heat, per-sector and per-position caps, and a
+    // min-notional floor across the BUY/HOLD set. This is the fix for the old
+    // behaviour where 20 signals × 2% could put 40% of capital at risk at once.
+    this.applyRiskLimits(topSignals);
+
+    // ── Paper-trading tracker ──────────────────────────────────
+    // Forward-test every accepted signal with realistic fills + costs, so we
+    // accumulate live evidence before any real capital is risked.
+    await this.updatePaperBook(topSignals);
+
     // ── Zerodha Watchlist (before dashboard writes — avoids nodemon restart mid-add)
-    const watchlistCandidates = topSignals.filter((s) => s.action !== "SKIP");
-    if (this.watchlistManager && watchlistCandidates.length > 0) {
+    // Add ALL signals regardless of action — the user does their own analysis
+    // on whatever lands in the watchlist.
+    if (this.watchlistManager && topSignals.length > 0) {
       try {
         const result =
-          await this.watchlistManager.createWatchlistFromSignals(
-            watchlistCandidates,
-          );
-        if (result.added < watchlistCandidates.length) {
+          await this.watchlistManager.createWatchlistFromSignals(topSignals);
+        if (result.added < topSignals.length) {
           console.warn(
-            `\n⚠ Watchlist: added ${result.added}/${watchlistCandidates.length} symbols`,
+            `\n⚠ Watchlist: added ${result.added}/${topSignals.length} symbols`,
           );
         }
       } catch (err: unknown) {
@@ -191,10 +223,6 @@ export class InvestmentAgent {
     } else if (!this.watchlistManager) {
       console.log(
         "\n💡 Tip: Set ZERODHA_ENCTOKEN in .env to auto-create Zerodha watchlists",
-      );
-    } else if (topSignals.length > 0 && watchlistCandidates.length === 0) {
-      console.log(
-        "\n📋 Skipping watchlist — all signals are SKIP (no BUY/HOLD candidates)",
       );
     }
 
@@ -287,52 +315,108 @@ export class InvestmentAgent {
       const fundScore = fund.score;
       const sentScore = sent.score;
 
-      if (fundScore === null || sentScore === null) {
+      // Weights depend on the holding timeframe: fundamentals only matter for
+      // long holds. For SHORT (1-2wk) they're ~ignored, so missing fundamental
+      // data should NOT skip the trade — only missing sentiment does.
+      const weights = TIMEFRAME_WEIGHTS[mtf.suggestedTimeframe];
+
+      if (sentScore === null) {
+        console.log(`   ⚠ ${sym}: skipping — no sentiment data`);
+        continue;
+      }
+      // Long-horizon trades genuinely need fundamentals; short ones don't.
+      if (fundScore === null && weights.fund >= 0.3) {
         console.log(
-          `   ⚠ ${sym}: skipping due to incomplete data (fund: ${fundScore}, sent: ${sentScore})`,
+          `   ⚠ ${sym}: skipping — ${mtf.suggestedTimeframe} trade needs fundamentals (none available)`,
         );
         continue;
       }
 
+      // If fundamentals are missing on a short/medium trade, redistribute their
+      // (small) weight to technical + sentiment rather than scoring them as 0.
+      let { tech: wTech, fund: wFund, sent: wSent } = weights;
+      let effFund = fundScore ?? 0;
+      if (fundScore === null) {
+        const total = wTech + wSent;
+        wTech /= total;
+        wSent /= total;
+        wFund = 0;
+        effFund = 0;
+      }
+
       const overallScore = Math.round(
-        techScore * 0.4 + fundScore * 0.3 + sentScore * 0.3,
+        techScore * wTech + effFund * wFund + sentScore * wSent,
       );
 
       let action: "BUY" | "HOLD" | "SKIP" = "BUY";
-      if (overallScore < 45 || sentScore < 30) {
+      if (
+        overallScore < config.signals.holdScoreThreshold ||
+        sentScore < config.signals.minSentiment
+      ) {
         action = "SKIP";
-      } else if (overallScore < 60 || techScore < 50) {
+      } else if (
+        overallScore < config.signals.buyScoreThreshold ||
+        techScore < config.signals.minAlignment
+      ) {
         action = "HOLD";
       }
 
+      // Stop width scales with risk appetite (wider ATR multiple → more room
+      // for high-beta names to run before stopping out). The 8% hard floor
+      // (entry*0.92) caps catastrophic single-trade loss regardless of profile.
       const atr = mtf.daily.atr || tech.price * 0.02;
       const entry = tech.price;
-      const stopLoss = Math.max(entry - atr * 1.5, entry * 0.92);
+      const stopLoss = Math.max(
+        entry - atr * config.risk.atrStopMultiple,
+        entry * 0.92,
+      );
       const risk = entry - stopLoss;
 
+      // Target ladder uses the profile's R-multiples — aggressive reaches for
+      // bigger payoffs (e.g. 3/6/10R) vs conservative (2/3R).
+      const rMultiples = config.signals.targetMultipliers;
       let targets: number[];
       let expectedReturn: number;
       let holdingPeriod: string;
 
       if (mtf.suggestedTimeframe === "SHORT") {
-        targets = [entry + risk * 2, entry + risk * 3];
-        expectedReturn = ((risk * 2) / entry) * 100;
+        const m = rMultiples.slice(0, 2);
+        targets = m.map((x) => entry + risk * x);
+        expectedReturn = ((risk * m[0]) / entry) * 100;
         holdingPeriod = "1-2 weeks";
       } else if (mtf.suggestedTimeframe === "MEDIUM") {
-        targets = [entry + risk * 3, entry + risk * 5, entry + risk * 7];
-        expectedReturn = ((risk * 3) / entry) * 100;
+        targets = rMultiples.map((x) => entry + risk * x);
+        expectedReturn = ((risk * rMultiples[0]) / entry) * 100;
         holdingPeriod = "1-3 months";
       } else {
-        targets = [entry * 1.15, entry * 1.25, entry * 1.4];
-        expectedReturn = 15;
+        // LONG: percentage targets scaled up for aggressive (multibagger reach).
+        const longScale = config.riskProfile === "aggressive" ? 2 : 1;
+        targets = [
+          entry * (1 + 0.15 * longScale),
+          entry * (1 + 0.25 * longScale),
+          entry * (1 + 0.4 * longScale),
+        ];
+        expectedReturn = 15 * longScale;
         holdingPeriod = "6+ months";
       }
 
-      const riskAmount = Math.min(
-        config.capital * config.riskPercent,
-        risk * 100,
-      );
-      const quantity = Math.max(1, Math.floor(riskAmount / risk));
+      // Duration-adjusted return: scale expected % to an annual rate so a 20%
+      // gain in 2 weeks ranks far above 20% over 6 months. This is the metric
+      // the user cares about (profit relative to trade duration). Uses SIMPLE
+      // (linear) scaling, not compounding — compounding a 2-week return to a
+      // year produces absurd 5-figure %s that swamp every other factor and
+      // collapse the ranking to "shortest timeframe wins". Linear keeps the
+      // spread meaningful while still rewarding faster trades proportionally.
+      const holdDays = TIMEFRAME_HOLDING_DAYS[mtf.suggestedTimeframe];
+      const annualizedReturn = expectedReturn * (365 / holdDays);
+
+      // Fixed-fractional sizing: risk a fixed % of capital on the entry→stop
+      // distance. The old `risk * 100` cap had no financial meaning. Final
+      // per-position and portfolio caps are enforced by the risk engine after
+      // all signals are built (see applyRiskLimits).
+      const riskBudget = config.capital * config.risk.riskPerTradePct;
+      const quantity = Math.max(1, Math.floor(riskBudget / risk));
+      const riskAmount = risk * quantity;
       const potentialReward = (targets[0] - entry) * quantity;
       const riskRewardRatio = (targets[0] - entry) / risk;
 
@@ -370,6 +454,7 @@ export class InvestmentAgent {
         riskRewardRatio,
         suggestedTimeframe: mtf.suggestedTimeframe,
         expectedReturn,
+        annualizedReturn: Math.round(annualizedReturn),
         holdingPeriod,
         technicalScore: techScore,
         fundamentalScore: fundScore,
@@ -388,6 +473,178 @@ export class InvestmentAgent {
     }
 
     return signals;
+  }
+
+  // ─── Portfolio risk gate ──────────────────────────────────────
+
+  /**
+   * Size BUY/HOLD signals. Two modes (SIZING_MODE):
+   *  - "risk"       : layered risk engine with per-position/sector/heat caps.
+   *  - "conviction" : NO caps — allocate capital proportional to conviction
+   *                   (annualized return × score) so the best profit-per-time
+   *                   trades get the most. Sizing is advisory; nothing is
+   *                   demoted to SKIP for breaching a cap.
+   */
+  private applyRiskLimits(signals: InvestmentSignal[]): void {
+    const actionable = signals.filter((s) => s.action !== "SKIP");
+    if (actionable.length === 0) return;
+
+    if (sizing.mode === "conviction") {
+      this.sizeByConviction(actionable);
+      return;
+    }
+
+    const candidates: SizingCandidate[] = actionable.map((s) => ({
+      symbol: s.symbol,
+      sector: s.sector,
+      entry: s.entry,
+      stopLoss: s.stopLoss,
+      priority: s.overallScore,
+    }));
+
+    const result = allocate(candidates, {
+      capital: config.capital,
+      riskPerTradePct: config.risk.riskPerTradePct,
+      maxPortfolioHeatPct: config.risk.maxPortfolioHeatPct,
+      maxPositionPct: config.risk.maxPositionPct,
+      maxSectorPct: config.risk.maxSectorPct,
+      maxOpenPositions: config.risk.maxOpenPositions,
+      minPositionValue: config.risk.minPositionValue,
+      maxTotalDeploymentPct: sizing.maxTotalDeploymentPct,
+    });
+
+    const sizedBySymbol = new Map(result.accepted.map((p) => [p.symbol, p]));
+    const rejectedBySymbol = new Map(
+      result.rejected.map((r) => [r.symbol, r.reason]),
+    );
+
+    for (const s of signals) {
+      const sized = sizedBySymbol.get(s.symbol);
+      if (sized) {
+        s.quantity = sized.quantity;
+        s.riskAmount = Math.round(sized.riskAmount);
+        s.potentialReward = Math.round(
+          (s.targets[0] - s.entry) * sized.quantity,
+        );
+      } else if (s.action !== "SKIP") {
+        const reason = rejectedBySymbol.get(s.symbol) || "Risk cap";
+        s.action = "SKIP";
+        s.risks = [...(s.risks || []), `Risk gate: ${reason}`];
+      }
+    }
+
+    console.log(
+      `\n🛡️  Risk gate: ${result.accepted.length} positions approved | ` +
+        `heat ${result.portfolioHeatPct.toFixed(1)}% (cap ${(config.risk.maxPortfolioHeatPct * 100).toFixed(0)}%) | ` +
+        `capital deployed ${result.capitalDeployedPct.toFixed(0)}%`,
+    );
+    if (result.rejected.length > 0) {
+      const summary = result.rejected
+        .slice(0, 5)
+        .map((r) => `${r.symbol} (${r.reason})`)
+        .join(", ");
+      console.log(
+        `   Rejected: ${summary}${result.rejected.length > 5 ? " …" : ""}`,
+      );
+    }
+  }
+
+  /**
+   * Conviction sizing — NO position/sector/heat caps. Capital is allocated in
+   * proportion to each trade's conviction weight (annualized return × score),
+   * so the highest profit-per-time opportunities get the largest suggested
+   * positions. Quantities are ADVISORY: with an uncapped deployment ceiling the
+   * suggested notionals may sum past your cash, and you allocate manually.
+   */
+  private sizeByConviction(actionable: InvestmentSignal[]): void {
+    const weightOf = (s: InvestmentSignal) =>
+      Math.max(0.0001, s.annualizedReturn) * (s.overallScore / 100);
+    const totalWeight = actionable.reduce((a, s) => a + weightOf(s), 0);
+
+    // Notional budget to distribute. Uncapped (Infinity) → use 1× capital as
+    // the proportional base so suggested sizes are sensible numbers; the user
+    // scales up as they see fit. Finite ceiling → use that multiple of capital.
+    const deployMult = Number.isFinite(sizing.maxTotalDeploymentPct)
+      ? sizing.maxTotalDeploymentPct
+      : 1;
+    const notionalBudget = config.capital * deployMult;
+
+    let suggestedTotal = 0;
+    for (const s of actionable) {
+      const share = weightOf(s) / totalWeight;
+      const targetNotional = notionalBudget * share;
+      const qty = Math.max(1, Math.floor(targetNotional / s.entry));
+      s.quantity = qty;
+      s.riskAmount = Math.round((s.entry - s.stopLoss) * qty);
+      s.potentialReward = Math.round((s.targets[0] - s.entry) * qty);
+      suggestedTotal += qty * s.entry;
+    }
+
+    const ceiling = Number.isFinite(sizing.maxTotalDeploymentPct)
+      ? `${(sizing.maxTotalDeploymentPct * 100).toFixed(0)}% of capital`
+      : "uncapped";
+    console.log(
+      `\n🎯 Conviction sizing (NO caps): ${actionable.length} positions | ` +
+        `ranked by annualized return × score | deployment ceiling: ${ceiling}`,
+    );
+    console.log(
+      `   Suggested total notional ₹${Math.round(suggestedTotal).toLocaleString("en-IN")} ` +
+        `(${((suggestedTotal / config.capital) * 100).toFixed(0)}% of ₹${config.capital.toLocaleString("en-IN")} capital) — advisory, allocate manually`,
+    );
+  }
+
+  // ─── Paper trading ────────────────────────────────────────────
+
+  /**
+   * Mark the paper book to current prices (closing stops/targets) and open new
+   * paper positions from the approved BUY signals. Persisted to paper-book.json.
+   */
+  private async updatePaperBook(signals: InvestmentSignal[]): Promise<void> {
+    try {
+      const tracker = await PaperTracker.load(config.capital);
+      const asOf = new Date().toISOString().split("T")[0];
+
+      // Mark-to-market: price every open position + any approved-today symbol.
+      const prices: Record<string, number> = {};
+      for (const s of signals) prices[s.symbol] = s.price;
+
+      const closed = tracker.update(prices, asOf);
+      for (const t of closed) {
+        console.log(
+          `   📕 Paper close ${t.symbol}: ${t.exitReason} ${(t.returnPct * 100).toFixed(1)}% (₹${t.netPnl.toFixed(0)})`,
+        );
+      }
+
+      // Open new positions from approved BUY signals only.
+      const entries = signals
+        .filter((s) => s.action === "BUY" && s.quantity >= 1)
+        .map((s) => ({
+          symbol: s.symbol,
+          sector: s.sector,
+          strategy: s.suggestedTimeframe,
+          price: s.price,
+          quantity: s.quantity,
+          stopLoss: s.stopLoss,
+          targets: s.targets,
+          liquidity: "MEDIUM" as const,
+        }));
+      const opened = tracker.openFromSignals(entries, asOf);
+      await tracker.save();
+
+      const snap = tracker.snapshot();
+      console.log(
+        `\n📒 Paper book: ${snap.openPositions} open | equity ₹${Math.round(snap.equity).toLocaleString("en-IN")} | ` +
+          `return ${snap.totalReturnPct.toFixed(1)}% | win rate ${snap.metrics.winRate.toFixed(0)}% (${snap.metrics.totalTrades} closed)`,
+      );
+      if (opened.length > 0) {
+        console.log(
+          `   Opened ${opened.length}: ${opened.map((p) => p.symbol).join(", ")}`,
+        );
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`   ⚠ Paper tracker error: ${message}`);
+    }
   }
 
   // ─── Memory helpers ───────────────────────────────────────────
