@@ -72,6 +72,9 @@ const NSE_ANNOUNCEMENTS_API =
 const BSE_ANNOUNCEMENTS_API =
   "https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=&strScrip=&strSearch=P&strToDate=&strType=C&subcategory=-1";
 
+// Alternative NSE endpoint that doesn't require cookies (less data but more reliable)
+const NSE_ALTERNATIVE_API = "https://www.nseindia.com/api/merged-daily-reports?key=favmerged";
+
 const POSITIVE_WORDS = [
   "profit",
   "growth",
@@ -195,9 +198,13 @@ export class IndianNewsAgent {
       timeout: 10_000,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         Accept: "application/json, text/xml, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
       },
     });
 
@@ -206,10 +213,18 @@ export class IndianNewsAgent {
       baseURL: NSE_BASE,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         Referer: "https://www.nseindia.com/",
-        Accept: "application/json",
+        Accept: "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        Connection: "keep-alive",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
       },
     });
 
@@ -284,28 +299,115 @@ export class IndianNewsAgent {
     }
   }
 
-  private async refreshNseCookies(): Promise<void> {
+  private async loadSavedCookies(): Promise<boolean> {
     try {
-      const res = await this.nseHttp.get("/");
-      const setCookieHeader = res.headers["set-cookie"];
-      if (setCookieHeader) {
-        this.nseCookies = setCookieHeader
-          .map((c: string) => c.split(";")[0])
-          .join("; ");
-        this.nseHttp.defaults.headers.common["Cookie"] = this.nseCookies;
+      // Try to load cookies from the refresh script's cache
+      const cookiePath = ".nse-cookies.json";
+      const fs = await import("fs");
+
+      if (fs.existsSync(cookiePath)) {
+        const data = fs.readFileSync(cookiePath, "utf8");
+        const cookieData = JSON.parse(data);
+
+        // Check if cookies are not too old (< 20 minutes)
+        const age = Date.now() - new Date(cookieData.timestamp).getTime();
+        const ageMinutes = Math.floor(age / 60000);
+
+        if (ageMinutes < 20) {
+          this.nseCookies = cookieData.cookies;
+          this.nseHttp.defaults.headers.common["Cookie"] = this.nseCookies;
+          this.nseHttp.defaults.headers.common["User-Agent"] = cookieData.userAgent;
+          console.log(`[IndianNewsAgent] Loaded cached NSE cookies (${ageMinutes}min old)`);
+          return true;
+        } else {
+          console.log(`[IndianNewsAgent] Cached cookies too old (${ageMinutes}min)`);
+        }
       }
-      console.log("[IndianNewsAgent] NSE session cookie refreshed.");
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn("[IndianNewsAgent] NSE cookie refresh failed:", message);
+      // Ignore errors, will try fresh refresh
+    }
+    return false;
+  }
+
+  private async refreshNseCookies(retries = 3): Promise<void> {
+    // First, try to load saved cookies
+    const loaded = await this.loadSavedCookies();
+    if (loaded) return;
+
+    // If no saved cookies or expired, try to get fresh ones
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        // Add delay between retries to avoid rate limiting
+        if (attempt > 0) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 2000 * Math.pow(2, attempt)),
+          );
+        }
+
+        const res = await this.nseHttp.get("/", {
+          validateStatus: (status) => status === 200,
+        });
+
+        const setCookieHeader = res.headers["set-cookie"];
+        if (setCookieHeader) {
+          this.nseCookies = setCookieHeader
+            .map((c: string) => c.split(";")[0])
+            .join("; ");
+          this.nseHttp.defaults.headers.common["Cookie"] = this.nseCookies;
+          console.log("[IndianNewsAgent] NSE session cookie refreshed.");
+
+          // Save cookies for future use
+          try {
+            const fs = await import("fs");
+            const cookieData = {
+              cookies: this.nseCookies,
+              userAgent: this.nseHttp.defaults.headers.common["User-Agent"],
+              timestamp: new Date().toISOString(),
+            };
+            fs.writeFileSync(".nse-cookies.json", JSON.stringify(cookieData, null, 2));
+          } catch (err) {
+            // Ignore save errors
+          }
+
+          return;
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (attempt === retries - 1) {
+          console.warn(
+            `[IndianNewsAgent] NSE cookie refresh failed after ${retries} attempts:`,
+            message,
+          );
+          console.warn(
+            "[IndianNewsAgent] Run 'node refresh-nse-cookies.js --save' to manually refresh cookies.",
+          );
+          console.warn(
+            "[IndianNewsAgent] Will skip NSE announcements and use other sources.",
+          );
+        }
+      }
     }
   }
 
   private async fetchNseAnnouncements(): Promise<CorporateAnnouncement[]> {
+    // Skip NSE if we don't have cookies
+    if (!this.nseCookies) {
+      console.warn(
+        "[IndianNewsAgent] Skipping NSE announcements - no valid session",
+      );
+      return [];
+    }
+
     try {
-      const res = await this.nseHttp.get(NSE_ANNOUNCEMENTS_API);
+      // Add small delay before API call
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const res = await this.nseHttp.get(NSE_ANNOUNCEMENTS_API, {
+        validateStatus: (status) => status === 200,
+      });
       const data: Record<string, unknown>[] = res.data?.data ?? [];
 
+      console.log("[IndianNewsAgent] NSE announcements fetched:", data.length);
       return data.slice(0, 50).map((item) => ({
         symbol: String(item.symbol ?? ""),
         company: String(item.comp ?? ""),
@@ -320,6 +422,34 @@ export class IndianNewsAgent {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn("[IndianNewsAgent] NSE announcements error:", message);
+      console.warn("[IndianNewsAgent] Trying alternative NSE endpoint...");
+      return this.fetchNseAlternative();
+    }
+  }
+
+  private async fetchNseAlternative(): Promise<CorporateAnnouncement[]> {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // This endpoint is more reliable but provides less detailed data
+      const res = await this.http.get(NSE_ALTERNATIVE_API, {
+        validateStatus: (status) => status === 200,
+      });
+
+      const data: Record<string, unknown>[] = Array.isArray(res.data) ? res.data : [];
+      console.log("[IndianNewsAgent] Alternative NSE data fetched:", data.length);
+
+      // Transform the alternative format to our announcement format
+      return data.slice(0, 30).map((item) => ({
+        symbol: String(item.symbol ?? ""),
+        company: String(item.companyName ?? ""),
+        subject: "Market Activity Update",
+        description: `Trading data update for ${String(item.symbol ?? "")}`,
+        date: new Date(),
+        exchange: "NSE" as const,
+      }));
+    } catch (err) {
+      console.warn("[IndianNewsAgent] Alternative NSE endpoint also failed");
       return [];
     }
   }
@@ -499,10 +629,26 @@ export class IndianNewsAgent {
   async getAnnouncementsForSymbol(
     symbol: string,
   ): Promise<CorporateAnnouncement[]> {
-    await this.refreshNseCookies();
+    // Try to refresh cookies if we don't have them
+    if (!this.nseCookies) {
+      await this.refreshNseCookies();
+    }
+
+    // Skip if still no cookies after refresh attempt
+    if (!this.nseCookies) {
+      console.warn(
+        `[IndianNewsAgent] Skipping NSE announcements for ${symbol} - no valid session`,
+      );
+      return [];
+    }
+
     try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const url = `${NSE_ANNOUNCEMENTS_API}&symbol=${symbol}`;
-      const res = await this.nseHttp.get(url);
+      const res = await this.nseHttp.get(url, {
+        validateStatus: (status) => status === 200,
+      });
       const data: Record<string, unknown>[] = res.data?.data ?? [];
       return data.map((item) => ({
         symbol,
@@ -515,7 +661,12 @@ export class IndianNewsAgent {
           ? `https://nseindia.com/${String(item.attchmntFile)}`
           : undefined,
       }));
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[IndianNewsAgent] NSE announcements error for ${symbol}:`,
+        message,
+      );
       return [];
     }
   }
@@ -524,14 +675,16 @@ export class IndianNewsAgent {
     symbol: string,
     company?: string,
   ): Promise<RawNewsItem[]> {
-    const [yahoo, google, anns, rss] = await Promise.allSettled([
+    // Prioritize sources that don't require NSE cookies
+    const [yahoo, google, rss, anns] = await Promise.allSettled([
       this.fetchRssFeed(
         `Yahoo Finance (${symbol})`,
         `https://finance.yahoo.com/rss/headline?s=${symbol}.NS`,
       ),
       company ? this.fetchGoogleNews(symbol, company) : Promise.resolve([]),
-      this.getAnnouncementsForSymbol(symbol),
       this.fetchAllRssFeeds(),
+      // NSE announcements are fetched last and may fail
+      this.getAnnouncementsForSymbol(symbol),
     ]);
 
     const newsFromAnns: RawNewsItem[] = (
@@ -561,12 +714,18 @@ export class IndianNewsAgent {
           )
         : [];
 
-    return [
+    const allNews = [
       ...(yahoo.status === "fulfilled" ? yahoo.value : []),
       ...(google.status === "fulfilled" ? google.value : []),
       ...newsFromAnns,
       ...rssFiltered,
-    ].sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+    ];
+
+    console.log(
+      `[IndianNewsAgent] Total news for ${symbol}: ${allNews.length} (Yahoo: ${yahoo.status === "fulfilled" ? yahoo.value.length : 0}, Google: ${google.status === "fulfilled" ? google.value.length : 0}, RSS: ${rssFiltered.length}, NSE: ${newsFromAnns.length})`,
+    );
+
+    return allNews.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
   }
 }
 

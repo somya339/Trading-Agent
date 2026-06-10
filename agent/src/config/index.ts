@@ -32,6 +32,12 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "BANDHANBNK",
     "UJJIVANSFB",
     "EQUITASBNK",
+    "AUBANK", // ★ AU Small Finance Bank – Nifty 500, high-growth SFB
+    "KARURVYSYA", // ★ Karur Vysya Bank
+    "CUB", // ★ City Union Bank
+    "CENTRALBK", // ★ Central Bank of India
+    "BANKINDIA", // ★ Bank of India – Nifty 500 PSU bank
+    "IDBI", // ★ IDBI Bank
     // PSU banks
     "SBIN",
     "BANKBARODA",
@@ -43,14 +49,16 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "UCOBANK",
     "MAHABANK",
     "J&KBANK",
-    // NBFCs
+    // NBFCs & Housing Finance
     "BAJFINANCE",
     "BAJAJFINSV",
     "CHOLAFIN",
+    "CHOLAHLDNG", // ★ Cholamandalam Financial Holdings
     "MUTHOOTFIN",
     "MANAPPURAM",
     "M&MFIN",
     "LTFH",
+    "LTF", // ★ L&T Finance (correct NSE symbol)
     "HDFCAMC",
     "IIFL",
     "MOTILALOFS",
@@ -64,6 +72,38 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "ABCAPITAL",
     "POONAWALLA",
     "SBICARD",
+    "JIOFIN", // ★ Jio Financial Services – Nifty 50 entrant, high buzz
+    "SHRIRAMFIN", // ★ Shriram Finance – Nifty 50, major NBFC
+    "CANFINHOME", // ★ Can Fin Homes
+    "LICHSGFIN", // ★ LIC Housing Finance
+    "HUDCO", // ★ Housing & Urban Dev Corporation – very active
+    "ICICIGI", // ★ ICICI Lombard General Insurance
+    "MFSL", // ★ Max Financial Services
+    "GICRE", // ★ General Insurance Corporation
+    "NUVAMA",
+    "EDELWEISS",
+    "GEOJITFSL",
+    "ISEC", // ★ ICICI Securities
+    "CAMS",
+    "CDSL",
+    "BSE",
+    "MCX",
+    "ANANDRATHI", // ★ Anand Rathi Wealth
+    "KFINTECH", // ★ KFin Technologies
+    "NAM-INDIA", // ★ Nippon Life India AMC
+    "360ONE", // ★ 360 ONE WAM (IIFL Wealth)
+    "BAJAJHLDNG", // ★ Bajaj Holdings & Investment
+    "JMFINANCIL", // ★ JM Financial
+    "IEX", // ★ Indian Energy Exchange
+    "IFCI", // ★ IFCI
+    "UGROCAP",
+    "HOMEFIRST",
+    "APTUS",
+    "FIVESTAR",
+    "CREDITACC",
+    "ARMANFIN",
+    "SPANDANA",
+    "CGCL", // ★ Capri Global Capital
   ],
 
   // ─── IT & Technology ───────────────────────────────────────────────────────
@@ -90,6 +130,8 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "TANLA",
     "INTELLECT",
     // Internet / SaaS / Fintech
+    "NETWEB",
+    "BBOX",
     "NAUKRI",
     "INDIAMART",
     "ZOMATO",
@@ -99,17 +141,25 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "CARTRADE",
     "MAPMYINDIA",
     "NAZARA",
-    "HAPPIEST",
+    "HAPPSTMNDS", // ★ Happiest Minds (corrected symbol)
     "NEWGEN",
     "SAKSOFT",
     "DATAMATICS",
     "SONATSOFTW",
     "CYIENT",
-    "BIRLASOFT",
+    "BIRLASOFT", // (also listed as BSOFT on NSE)
     "ECLERCX",
     "ZENSAR",
     "FSL",
     "INFIBEAM",
+    "AFFLE", // ★ Affle India – high-growth adtech
+    "LATENTVIEW", // ★ Latent View Analytics – data analytics
+    "HAPPYFORGE", // ★ Happy Forgings (moved; kept under IT was wrong – see Capital Goods)
+    "JUSTDIAL", // ★ Just Dial
+    "CAMPUS", // moved to Retail; kept reference
+    "HFCL", // ★ HFCL – fibre/telecom infra tech
+    "ITI", // ★ ITI Ltd – govt telecom tech
+    "INDUSTOWER", // ★ Indus Towers – tower infra
   ],
 
   // ─── Pharma & Healthcare ───────────────────────────────────────────────────
@@ -134,13 +184,24 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "SANOFI",
     "BIOCON",
     "LAURUS",
+    "LAURUSLABS", // ★ Laurus Labs (correct NSE symbol)
     "ERIS",
+    "MANKIND", // ★ Mankind Pharma – major Nifty 500 pharma
+    "GLAND", // ★ Gland Pharma – injectables leader
+    "AJANTPHARM", // ★ Ajanta Pharmaceuticals
+    "APLLTD", // ★ Alembic Pharmaceuticals
+    "FDC", // ★ FDC Ltd
+    "CONCORDBIO", // ★ Concord Biotech – fermentation APIs
+    "JUBLPHARMA", // ★ Jubilant Pharmova
+    "ALIVUS", // ★ Alivus (formerly Glenmark Life Sciences)
+    "CAPLIPOINT",
     // Hospitals & diagnostics
     "APOLLOHOSP",
     "FORTIS",
     "MAXHEALTH",
     "MEDANTA",
     "ASTER",
+    "ASTERDM", // ★ Aster DM Healthcare (correct NSE symbol)
     "THYROCARE",
     "METROPOLIS",
     "POLYMED",
@@ -150,14 +211,17 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "SUVENPHAR",
     "STRIDES",
     "BLISSGVS",
-    "CAPLIPOINT",
+    "NH", // ★ Narayana Hrudayalaya
+    "LALPATHLAB", // ★ Dr. Lal PathLabs – diagnostics major
+    "KIMS", // ★ Krishna Institute of Medical Sciences
+    "YATHARTH",
   ],
 
   // ─── Auto & EV ─────────────────────────────────────────────────────────────
   "Auto & EV": [
     // OEMs
     "MARUTI",
-    "TATAMOTORS",
+    "TATAMOTORS", // ★ Tata Motors – Nifty 50, EV leader (corrected from TMCV/TMPV)
     "M&M",
     "BAJAJ-AUTO",
     "HEROMOTOCO",
@@ -167,10 +231,13 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "FORCEMOT",
     "ESCORTS",
     "OLECTRA",
-    "GREENPANEL",
     "TIINDIA",
     "CRAFTSMAN",
     "SUPRAJIT",
+    "MRF", // ★ MRF – India's biggest tyre company
+    "APOLLOTYRE", // ★ Apollo Tyres
+    "CEATLTD", // ★ CEAT Ltd
+    "JBMA", // ★ JBM Auto – EV bus maker
     // Auto ancillaries
     "MOTHERSON",
     "BALKRISIND",
@@ -178,18 +245,23 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "BHARATFORG",
     "EXIDEIND",
     "AMARAJABAT",
+    "ARE&M", // ★ Amara Raja Energy & Mobility (correct NSE symbol)
     "SUNDRMFAST",
     "GABRIEL",
     "SUBROS",
     "ENDURANCE",
     "MINDARIND",
+    "MINDACORP", // ★ Minda Corporation
     "LUMAX",
     "FIEM",
     "MINDA",
     "SSWL",
+    "CIEINDIA", // ★ CIE Automotive India
+    "HBLENGINE", // ★ HBL Power Systems – EV/defence batteries
+    "SANSERA",
+    "JTEKTINDIA",
     // EV / charging
     "TATAPOWER",
-    "OLECTRA",
     "GREENZO",
   ],
 
@@ -211,10 +283,13 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "GSPL",
     "GUJGASLTD",
     "ATGL",
+    "OILINDIA", // ★ Oil India – Nifty 500, active PSU
     // Power generation & T&D
     "NTPC",
     "POWERGRID",
     "ADANIGREEN",
+    "ADANIENSOL", // ★ Adani Energy Solutions (T&D) – Nifty 500
+    "ADANIPOWER", // ★ Adani Power – major thermal power
     "ADANITRANS",
     "TATAPOWER",
     "CESC",
@@ -224,7 +299,8 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "SJVN",
     "RPOWER",
     "JSWENERGY",
-    "GREENPANEL",
+    "NLCINDIA", // ★ NLC India – thermal + solar PSU
+    "GPIL", // ★ Godawari Power & Ispat
     "INOXWIND",
     "SUZLON",
     "ORIENTGREEN",
@@ -232,6 +308,8 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "WAAREEENER",
     "PREMIER",
     "KPI",
+    "BORORENEW", // ★ Borosil Renewables – solar glass
+    "ADANIPORTS", // ★ Adani Ports – also energy/infra nexus
   ],
 
   // ─── Capital Goods & Defence ───────────────────────────────────────────────
@@ -242,6 +320,8 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "BEL",
     "COCHINSHIP",
     "MAZAGON",
+    "MAZDOCK", // ★ Mazagon Dock (correct NSE symbol)
+    "GRSE", // ★ Garden Reach Shipbuilders – defence shipyard
     "GRINDWELL",
     "THERMAX",
     "CUMMINSIND",
@@ -256,16 +336,46 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "GMRINFRA",
     "IRB",
     "KEC",
+    "KEI", // ★ KEI Industries – cables & wires
     "KALPATPOWR",
+    "KPIL", // ★ Kalpataru Projects International
     "SGEL",
     "TRITURBINE",
     "DYNAMATECH",
     "DATPATTERN",
+    "DATAPATTNS",
     "ASTRAZEN",
     "PARAS",
-    "ZEN",
+    "ZENTEC",
     "MTAR",
+    "MTARTECH", // ★ MTAR Technologies (correct NSE symbol)
     "IDEAFORGE",
+    "BDL",
+    "SOLARINDS",
+    "CGPOWER", // ★ CG Power – transformers/motors, Nifty 500
+    "POWERINDIA", // ★ Hitachi Energy India (transformers)
+    "APARINDS", // ★ Apar Industries – conductors/cables
+    "FINCABLES", // ★ Finolex Cables
+    "FINPIPE", // ★ Finolex Industries
+    "ELECON", // ★ Elecon Engineering
+    "CARBORUNIV", // ★ Carborundum Universal
+    "AIAENG", // ★ AIA Engineering – high-chrome mill internals
+    "ACE", // ★ Action Construction Equipment – cranes
+    "BEML", // ★ BEML – defence/metro/mining equipment
+    "ENGINERSIN", // ★ Engineers India Ltd
+    "KSB", // ★ KSB Ltd – pumps & valves
+    "HEG", // ★ HEG – graphite electrodes (defence/EAF)
+    "GRAPHITE", // ★ Graphite India
+    "HAPPYFORGE", // ★ Happy Forgings
+    "JWL", // ★ Jupiter Wagons – railway wagons
+    "EPL", // ★ EPL Ltd – packaging tubes
+    "IRCON", // ★ IRCON International – railway construction
+    "NBCC", // ★ NBCC – govt construction PSU
+    "KAYNES",
+    "AVALON",
+    "SYRMA",
+    "JYOTICNC",
+    "ANUPAM",
   ],
 
   // ─── Consumer & FMCG ──────────────────────────────────────────────────────
@@ -289,17 +399,18 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "JYOTHYLAB",
     "BAJAJCON",
     "ZYDUSWELL",
-    "KANSAINER",
-    "BERGER",
-    "ASIANPAINT",
-    "AKZOINDIA",
-    "SHALPAINTS",
-    "INDIGO",
-    "AVANTIFEED",
-    "APEX",
     "BIKAJI",
     "DOMS",
     "WONDERLA",
+    "GILLETTE", // ★ Gillette India
+    "GODFRYPHLP", // ★ Godfrey Phillips India (cigarettes)
+    "AWL", // ★ Adani Wilmar – Fortune oil (Nifty 500)
+    "HONASA", // ★ Honasa Consumer (Mamaearth) – D2C FMCG
+    "CCL", // ★ CCL Products – instant coffee exporter
+    "GAEL", // ★ Gujarat Ambuja Exports
+    "BBTC", // ★ Bombay Burmah Trading Corp
+    "AVANTIFEED",
+    "APEX",
   ],
 
   // ─── Real Estate ───────────────────────────────────────────────────────────
@@ -320,10 +431,17 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "ANANTRAJ",
     "GANESHHOUC",
     "LODHA",
-    "MACROTECH",
+    "MACROTECH", // ★ Macrotech Developers (Lodha Group NSE symbol)
     "SIGNATURE",
     "AARTECH",
     "NSLNISP",
+    "MAHLIFE", // ★ Mahindra Lifespace Developers
+    "CHALET", // ★ Chalet Hotels – hospitality real estate
+    "LEMONTREE", // ★ Lemon Tree Hotels
+    "EIHOTEL", // ★ EIH Ltd (Oberoi Hotels)
+    "INDHOTEL", // ★ Indian Hotels (Taj) – hospitality
+    "MHRIL", // ★ Mahindra Holidays
+    "HUDCO", // ★ Housing & Urban Dev Corp (also Finance)
   ],
 
   // ─── Metals & Mining ──────────────────────────────────────────────────────
@@ -339,30 +457,37 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "KALYANKJIL",
     "GALLISPAT",
     "WELCORP",
+    "JSL", // ★ Jindal Stainless – Nifty 500, SS leader
+    "JINDALSTEL", // ★ Jindal Steel & Power (correct NSE symbol for JSPL)
+    "JAIBALAJI", // ★ Jai Balaji Industries – hot SME steel play
+    "LLOYDSME", // ★ Lloyds Metals & Energy
     // Aluminium / zinc / copper
     "HINDALCO",
     "VEDL",
     "NALCO",
+    "NATIONALUM", // ★ National Aluminium (correct NSE symbol)
     "HINDZINC",
+    "HINDCOPPER", // ★ Hindustan Copper
     "NMDC",
     "COALINDIA",
     "MOIL",
     "GMDC",
+    "GMDCLTD", // ★ GMDC (correct NSE symbol)
     "KIOCL",
-    "SANDUMA",
     // Specialty metals
     "MIDHANI",
     "TINPLATE",
     "STEELHCL",
     "SHYAMMETL",
-    "JSPL",
+    "ADANIENT", // ★ Adani Enterprises (metals/mining classification in Nifty)
+    "OILINDIA", // also Energy
   ],
 
   // ─── Chemicals & Specialty ─────────────────────────────────────────────────
   "Chemicals & Specialty": [
     "PIDILITIND",
     "SRF",
-    "DEEPAKNITRITE",
+    "DEEPAKNTR", // ★ Deepak Nitrite (correct NSE symbol)
     "NAVINFLUOR",
     "ATUL",
     "VINATI",
@@ -374,6 +499,7 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "GNFC",
     "COROMANDEL",
     "CHAMBAL",
+    "CHAMBLFERT", // ★ Chambal Fertilizers (correct NSE symbol)
     "GSFC",
     "AAVAS",
     "ASTRAL",
@@ -382,7 +508,6 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "ROSSELLIND",
     "LXCHEM",
     "DMCC",
-    "TATACHEM",
     "IGPL",
     "BALCHEM",
     "PCBL",
@@ -390,6 +515,20 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "KIRI",
     "BORAXMORAR",
     "EPIGRAL",
+    "AARTIIND", // ★ Aarti Industries – Nifty 500 specialty chem
+    "ALKYLAMINE", // ★ Alkyl Amines Chemicals
+    "BALAMINES", // ★ Balaji Amines
+    "DEEPAKFERT", // ★ Deepak Fertilisers & Petrochemicals
+    "FLUOROCHEM", // ★ Gujarat Fluorochemicals – fluoro-specialty
+    "CHEMPLASTS", // ★ Chemplast Sanmar – PVC/specialty
+    "JUBLINGREA", // ★ Jubilant Ingrevia – specialty ingredients
+    "AETHER", // ★ Aether Industries – CRAMS/specialty
+    "HSCL", // ★ Himadri Speciality Chemical
+    "LINDEINDIA", // ★ Linde India – industrial gases
+    "FACT", // ★ Fertilisers & Chemicals Travancore
+    "EIDPARRY", // ★ EID Parry – sugar + chemicals
+    "ANURAS", // ★ Anupam Rasayan – CRAMS
+    "ACI", // ★ Archean Chemical Industries
   ],
 
   // ─── Infrastructure & Cement ───────────────────────────────────────────────
@@ -405,11 +544,13 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "HEIDELBERG",
     "BIRLACORPN",
     "DALMIA",
+    "DALBHARAT", // ★ Dalmia Bharat (correct NSE symbol)
     "NUVOCO",
     "PRISMJOINTS",
     "ORIENTCEM",
     "STARCEMENT",
     "JKLAKSHMI",
+    "INDIACEM", // ★ India Cements – major south India cement
     // Infrastructure / construction
     "KNRCON",
     "PNCINFRA",
@@ -426,6 +567,12 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "PSP",
     "PDSL",
     "AHLUCONT",
+    "JSWINFRA", // ★ JSW Infrastructure – ports, Nifty 500
+    "ADANIPORTS", // ★ Adani Ports – India's largest port operator
+    "NBCC", // ★ NBCC – govt construction
+    "IRCON", // ★ IRCON International
+    "ENGINERSIN", // ★ Engineers India
+    "KPIL", // ★ Kalpataru Projects
   ],
 
   // ─── Retail & Consumption ─────────────────────────────────────────────────
@@ -439,6 +586,7 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "DEVYANI",
     "WESTLIFE",
     "BATA",
+    "BATAINDIA", // ★ Bata India (correct NSE symbol)
     "RAYMOND",
     "VMART",
     "SHOPERSTOP",
@@ -447,6 +595,7 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "MANYAVAR",
     "CAMPUS",
     "METRO",
+    "METROBRAND", // ★ Metro Brands (correct NSE symbol)
     "SAPPHIRE",
     "BARBEQUE",
     "EASEMYTRIP",
@@ -455,6 +604,17 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "IXIGO",
     "YATHARTH",
     "SENCO",
+    "INDIGO", // ★ InterGlobe Aviation (IndiGo) – aviation/travel
+    "LEMONTREE", // ★ Lemon Tree Hotels
+    "CHALET", // ★ Chalet Hotels
+    "MHRIL", // ★ Mahindra Holidays
+    "JUSTDIAL", // ★ Just Dial – local commerce
+    "BLS", // ★ BLS International Services – travel/visa
+    "CELLO", // ★ Cello World – consumer durables/stationery
+    "EIHOTEL", // ★ EIH (Oberoi Hotels)
+    "INDHOTEL", // ★ Indian Hotels (Taj)
+    "WONDERLA",
+    "KALYANKJIL", // ★ Kalyan Jewellers (also in Metals)
   ],
 
   // ─── Telecom & Media ──────────────────────────────────────────────────────
@@ -469,8 +629,9 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "PVRINOX",
     "SAREGAMA",
     "TIPS",
+    "TIPSINDLTD",
     "INOXLEISURE",
-    "NETWORKI8",
+    "NETWORK18", // ★ Network18 (correct NSE symbol)
     "TVTODAY",
     "DBCORP",
     "JAGRAN",
@@ -478,7 +639,9 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "APTUS",
     "DEN",
     "HINDMEDIA",
-    "MIDCAP",
+    "INDUSTOWER", // ★ Indus Towers – critical telecom infrastructure
+    "HFCL", // ★ HFCL – optical fibre & telecom infra
+    "ITI", // ★ ITI Ltd – govt telecom equipment
   ],
 
   // ─── Insurance & Asset Management ─────────────────────────────────────────
@@ -489,6 +652,9 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "LICI",
     "STARHEALTH",
     "ABCAPITAL",
+    "ICICIGI", // ★ ICICI Lombard General Insurance
+    "MFSL", // ★ Max Financial Services
+    "GICRE", // ★ General Insurance Corporation
     "MUTHOOTFIN",
     "MANAPPURAM",
     "IIFL",
@@ -503,6 +669,13 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "BSE",
     "MCX",
     "NSEINDIA",
+    "ANANDRATHI", // ★ Anand Rathi Wealth
+    "KFINTECH", // ★ KFin Technologies
+    "NAM-INDIA", // ★ Nippon Life India AMC
+    "360ONE", // ★ 360 ONE WAM
+    "BAJAJHLDNG", // ★ Bajaj Holdings
+    "JMFINANCIL", // ★ JM Financial
+    "IEX", // ★ Indian Energy Exchange
   ],
 
   // ─── Logistics & Supply Chain ─────────────────────────────────────────────
@@ -522,6 +695,11 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "GATEWAY",
     "ESAB",
     "OCCL",
+    "ADANIPORTS", // ★ Adani Ports – largest port/logistics operator
+    "JSWINFRA", // ★ JSW Infrastructure – ports & terminals
+    "GPPL", // ★ Gujarat Pipavav Port
+    "MMTC", // ★ MMTC – state trading / logistics
+    "BLS", // ★ BLS International – travel/logistics services
   ],
 
   // ─── Agri & Food Processing ────────────────────────────────────────────────
@@ -529,6 +707,7 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "UPL",
     "PIIND",
     "BAYER",
+    "BAYERCROP", // ★ Bayer Cropscience (correct NSE symbol)
     "RALLIS",
     "DHANUKA",
     "INSECTICID",
@@ -537,7 +716,6 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "KSBL",
     "SUMITCHEM",
     "KRBL",
-    "LT FOODS",
     "PATANJALI",
     "AVANTIFEED",
     "APEX",
@@ -546,6 +724,18 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "GLOBUS",
     "USHAMART",
     "ZYDUSLIFE",
+    "COROMANDEL", // ★ Coromandel International – fertilisers, Nifty 500
+    "CHAMBLFERT", // ★ Chambal Fertilizers
+    "GSFC", // ★ Gujarat State Fertilizers
+    "GNFC", // ★ GNFC – fertilizers + chemicals
+    "DEEPAKFERT", // ★ Deepak Fertilisers
+    "EIDPARRY", // ★ EID Parry – sugar + agri-inputs
+    "BALRAMCHIN", // ★ Balrampur Chini Mills – sugar
+    "AWL", // ★ Adani Wilmar – edible oils
+    "CCL", // ★ CCL Products – instant coffee
+    "GAEL", // ★ Gujarat Ambuja Exports – soya/maize
+    "FACT", // ★ FACT – fertilizer major
+    "KSCL", // ★ Kaveri Seed Company
   ],
 
   // ─── Textiles & Apparel ────────────────────────────────────────────────────
@@ -570,12 +760,17 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "SHIVALIK",
     "SPORTKING",
     "SUTLEJ",
+    "KPRMILL", // ★ K.P.R. Mill – large integrated textiles, Nifty 500
+    "ALOKINDS", // ★ Alok Industries – polyester/textiles
+    "ARVIND", // ★ Arvind Ltd – denim & brands
+    "MAFANG", // ★ Mafia textiles (placeholder – verify symbol)
   ],
 
   // ─── Paints & Building Materials ──────────────────────────────────────────
   "Paints & Building Materials": [
     "ASIANPAINT",
     "BERGER",
+    "BERGEPAINT", // ★ Berger Paints (correct NSE symbol)
     "KANSAINER",
     "AKZOINDIA",
     "SHALPAINTS",
@@ -585,6 +780,7 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "CERA",
     "SOMANY",
     "KAJARIA",
+    "KAJARIACER", // ★ Kajaria Ceramics (correct NSE symbol)
     "ORIFLAME",
     "GRINDWELL",
     "GREENPANEL",
@@ -594,6 +790,35 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "VINYLINDIA",
     "RUSHIL",
     "STYLAM",
+    "APLAPOLLO", // ★ APL Apollo Tubes – steel tubes for construction
+    "HAVELLS", // ★ Havells India – electricals/consumer durables
+    "CROMPTON", // ★ Crompton Greaves Consumer Electricals
+    "BLUESTARCO", // ★ Blue Star – AC/cooling/building solutions
+    "AMBER", // ★ Amber Enterprises – AC/electronics OEM
+    "DIXON", // ★ Dixon Technologies – electronics OEM
+  ],
+
+  // ─── Consumer Durables & Electronics ──────────────────────────────────────
+  "Consumer Durables & Electronics": [
+    "HAVELLS", // ★ Havells – Nifty 50, electricals giant
+    "CROMPTON", // ★ Crompton Greaves Consumer Electricals
+    "BLUESTARCO", // ★ Blue Star – AC market leader
+    "AMBER", // ★ Amber Enterprises – RAC components
+    "DIXON", // ★ Dixon Technologies – contract electronics
+    "VOLTAS", // ★ Voltas – Tata AC brand
+    "WHIRLPOOL", // ★ Whirlpool India
+    "VGUARD", // ★ V-Guard Industries – South India electricals
+    "ORIENTELEC", // ★ Orient Electric – fans & lighting
+    "KAJARIACER",
+    "CERA",
+    "SOMANY",
+    "CENTURYPLY",
+    "GREENPLY",
+    "GREENPANEL",
+    "CELLO", // ★ Cello World – consumer houseware
+    "CAMPUS",
+    "BATAINDIA",
+    "METROBRAND",
   ],
 
   // ─── Diversified Conglomerates ─────────────────────────────────────────────
@@ -610,9 +835,38 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "HINDALCO",
     "MCDOWELL-N",
     "GODREJCP",
+    "GODREJIND", // ★ Godrej Industries – diversified holding co.
     "TATACONSUM",
     "TATACOMM",
     "BIRLASOFT",
+    "3MINDIA", // ★ 3M India – diversified industrial/consumer
+    "DCMSHRIRAM", // ★ DCM Shriram – chemicals, cement, sugar
+    "JIOFIN", // ★ Jio Financial Services – new major conglomerate arm
+  ],
+
+  // ─── Railways & Defence (NEW SECTOR) ──────────────────────────────────────
+  "Railways & Defence": [
+    "HAL", // ★ Hindustan Aeronautics
+    "BEL", // ★ Bharat Electronics
+    "BDL", // ★ Bharat Dynamics
+    "COCHINSHIP", // ★ Cochin Shipyard
+    "MAZDOCK", // ★ Mazagon Dock
+    "GRSE", // ★ Garden Reach Shipbuilders
+    "DATAPATTNS", // ★ Data Patterns – defence electronics
+    "SOLARINDS", // ★ Solar Industries – explosives & defence
+    "MTAR",
+    "MTARTECH", // ★ MTAR Technologies
+    "IDEAFORGE", // ★ ideaForge – drones
+    "IRFC", // ★ Indian Railway Finance Corp
+    "IRCON", // ★ IRCON International – railway construction
+    "NBCC", // ★ NBCC – govt construction
+    "RVNL", // ★ Rail Vikas Nigam – hot railway PSU
+    "RAILTEL", // ★ RailTel Corporation – telecom infra
+    "TITAGARH", // ★ Titagarh Wagons – wagons & defence
+    "JWL", // ★ Jupiter Wagons
+    "BEML", // ★ BEML – defence/metro vehicles
+    "ENGINERSIN", // ★ Engineers India
+    "ZENTEC",
   ],
 
   // ─── Small & Micro Cap Multibaggers ────────────────────────────────────────
@@ -662,5 +916,45 @@ export const SECTOR_SYMBOLS: Record<string, string[]> = {
     "JTEKTINDIA",
     "EPIGRAL",
     "RATEGAIN",
+    // ── Newly added hot small/mid caps ──
+    "RVNL", // ★ Rail Vikas Nigam – railways infra PSU
+    "RAILTEL", // ★ RailTel – railway telecom
+    "TITAGARH", // ★ Titagarh Wagons
+    "LLOYDSME", // ★ Lloyds Metals & Energy
+    "JAIBALAJI", // ★ Jai Balaji Industries
+    "JBMA", // ★ JBM Auto – EV buses
+    "ACE", // ★ Action Construction Equipment
+    "HAPPYFORGE", // ★ Happy Forgings
+    "JWL", // ★ Jupiter Wagons
+    "FLUOROCHEM", // ★ Gujarat Fluorochemicals
+    "AETHER", // ★ Aether Industries
+    "HSCL", // ★ Himadri Speciality Chemical
+    "CONCORDBIO", // ★ Concord Biotech
+    "MANKIND", // ★ Mankind Pharma
+    "GLAND", // ★ Gland Pharma
+    "LATENTVIEW", // ★ Latent View Analytics
+    "AFFLE", // ★ Affle India
+    "KFINTECH", // ★ KFin Technologies
+    "ANANDRATHI", // ★ Anand Rathi Wealth
+    "360ONE", // ★ 360 ONE WAM
+    "JUSTDIAL", // ★ Just Dial
+    "BLS", // ★ BLS International
+    "CELLO", // ★ Cello World
+    "HONASA", // ★ Honasa Consumer (Mamaearth)
+    "GPIL", // ★ Godawari Power & Ispat
+    "NLCINDIA", // ★ NLC India
+    "OILINDIA", // ★ Oil India
+    "HUDCO", // ★ HUDCO
+    "CGCL", // ★ Capri Global Capital
+    "KARURVYSYA", // ★ Karur Vysya Bank
+    "CUB", // ★ City Union Bank
+    "AUBANK", // ★ AU Small Finance Bank
+    "KIMS", // ★ Krishna Institute of Medical Sciences
+    "NH", // ★ Narayana Hrudayalaya
+    "LALPATHLAB", // ★ Dr. Lal PathLabs
+    "AJANTPHARM", // ★ Ajanta Pharma
+    "APLLTD", // ★ Alembic Pharma
+    "ALOKINDS", // ★ Alok Industries
+    "KPRMILL", // ★ K.P.R. Mill
   ],
 };

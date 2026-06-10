@@ -108,7 +108,7 @@ Return JSON:
         { role: "user", content: prompt },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 1000,   // Higher for deeper macro analysis
+      max_completion_tokens: 1000, // Higher for deeper macro analysis
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
